@@ -83,3 +83,32 @@ form button{padding:0 20px;font-size:18px}
 .sharemsg{color:var(--cyan);font-size:12px;min-height:1em}
 
 @media (max-height:640px){.logo{margin-top:1vh}.menu{gap:8px}}
+
+/* v2 */
+.hud{align-items:center}
+button.back{font-size:12px;padding:6px 10px;letter-spacing:.15em;border-width:2px;box-shadow:0 0 0 2px var(--navy)}
+button small{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.05em;opacity:.75;margin-left:8px}
+button.resume{border-color:var(--pink);box-shadow:0 0 0 3px var(--navy),0 0 18px rgba(255,92,138,.45);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 3px var(--navy),0 0 28px rgba(255,92,138,.8)}}
+.count{font-family:"Silkscreen",monospace;letter-spacing:.15em;color:var(--pink);opacity:1;font-size:12px}
+.letter{color:var(--gold);white-space:nowrap}
+.floater{position:fixed;z-index:4;transform:translate(-50%,0);font-family:"Silkscreen",monospace;font-size:26px;
+  pointer-events:none;text-shadow:0 2px 0 #1b2235,0 0 10px currentColor;animation:floatUp 1.6s ease-out forwards;color:#fff}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,10px) scale(.6)}15%{opacity:1;transform:translate(-50%,0) scale(1.15)}100%{opacity:0;transform:translate(-50%,-70px) scale(1)}}
+.banner{position:fixed;left:50%;top:38%;z-index:4;transform:translate(-50%,-50%);pointer-events:none;opacity:0;
+  font-family:"Silkscreen",monospace;font-size:clamp(26px,5vw,48px);letter-spacing:.12em;color:#fff;text-align:center;
+  text-shadow:-3px 0 var(--pink),3px 0 var(--cyan),0 4px 0 #1b2235;white-space:nowrap}
+.banner small{display:block;font-size:.35em;letter-spacing:.6em;color:var(--gold)}
+.banner.show{animation:bannerIn 2.6s ease-out forwards}
+@keyframes bannerIn{0%{opacity:0;transform:translate(-50%,-50%) scaleX(1.6)}12%{opacity:1;transform:translate(-50%,-50%) scaleX(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%)}}
+.logo{animation:glitch 4s infinite steps(1)}
+@keyframes glitch{0%,92%,100%{text-shadow:-4px 0 var(--pink),4px 0 var(--cyan)}93%{text-shadow:6px 0 var(--pink),-6px 0 var(--cyan);transform:translateX(2px)}95%{text-shadow:-2px 2px var(--pink),2px -2px var(--cyan);transform:translateX(-2px)}97%{transform:none}}
+.res-tier.t4{animation:rainbow 1s linear infinite}
+@keyframes rainbow{0%{color:#ff5c8a}33%{color:#ffd166}66%{color:#5ee6f0}100%{color:#ff5c8a}}
+
+/* readable on any biome */
+.sub,.hud,.loading{background:rgba(14,22,40,.55);color:var(--cream);padding:4px 10px;opacity:1}
+.hud{padding:6px 10px}
+.hud b{color:#fff}
+.sub.count{color:var(--pink)}
+.floater.t1{color:#7ee081}.floater.t2{color:var(--cyan)}.floater.t3{color:var(--gold)}.floater.t4{color:var(--pink);font-size:34px}

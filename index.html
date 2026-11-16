@@ -14,14 +14,17 @@
 <body>
 <canvas id="scene"></canvas>
 <div class="crt"></div>
+<div id="banner" class="banner"></div>
 
 <!-- TITLE -->
 <section id="title" class="screen active">
   <h1 class="logo" data-text="MEOWSAND">MEOWSAND</h1>
   <p class="tagline">THE DAILY CHASE</p>
   <p class="sub">7 prompts · 25 seconds each · rarer answers roll further</p>
+  <p class="sub count" id="count"></p>
   <div class="menu">
     <button id="btnDaily" class="big">▶ DAILY CHASE ◀</button>
+    <button id="btnResume" class="mid resume hidden"></button>
     <button id="btnUnlimited" class="mid">∞ UNLIMITED <span class="pill">endless</span></button>
     <details class="how">
       <summary>▸ HOW TO PLAY</summary>
@@ -30,7 +33,8 @@
         <li>Type any valid answer within 25 seconds. Typos are forgiven.</li>
         <li>The rarer your answer, the further the yarn rolls. Say “apple” and it barely moves. Say “jabuticaba” and the cat's in for a sprint.</li>
         <li>Answers rarer than <b>1 in 1,000</b> are <b>one in a meowsand</b>.</li>
-        <li>Everyone gets the same 7 prompts in the Daily Chase. Unlimited never runs out.</li>
+        <li>Everyone gets the same 7 prompts in the Daily Chase. Unlimited never runs out, and your journey carries on through new lands every chase.</li>
+        <li>Need a break? Hit <b>◀ BACK</b> (or Esc) and resume later, with your timer saved.</li>
       </ol>
     </details>
     <div id="stats" class="stats"></div>
@@ -41,6 +45,7 @@
 <!-- PLAY -->
 <section id="play" class="screen">
   <div class="hud">
+    <button id="btnBack" class="back" title="Save and go back (Esc)">◀ BACK</button>
     <span id="round">1 / 7</span>
     <span id="mode">DAILY</span>
     <span><b id="dist">0</b> m</span>

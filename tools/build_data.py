@@ -18,6 +18,16 @@ from wordfreq import zipf_frequency
 
 sys.path.insert(0, os.path.dirname(__file__))
 from categories import HANDWRITTEN, CORPORA
+from categories_more import MORE
+import glob
+
+HANDWRITTEN.update(MORE)
+# AI-generated lists from tools/generate_prompts.py (first line = prompt, rest = answers)
+for path in sorted(glob.glob(os.path.join(os.path.dirname(__file__), "generated", "*.txt"))):
+    with open(path, encoding="utf8") as fh:
+        q, _, body = fh.read().partition("\n")
+    if q.strip() and q.strip() not in HANDWRITTEN and body.count(",") >= 20:
+        HANDWRITTEN[q.strip()] = body
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORPORA_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "corpora")

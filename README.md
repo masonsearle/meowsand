@@ -4,7 +4,9 @@ A cat-themed, Krillion-style word game. Name a thing, and the **rarer** your ans
 
 - **Daily Chase**: 7 prompts, 25 seconds each, the same for everyone that day
 - **Unlimited**: endless chases, never locked behind a daily limit
-- 66 prompts and **16,500+ accepted answers**, each with a "1 in N" rarity
+- **670+ prompts** (126 hand-built + "starting with X" remixes) and **~20,000 accepted answers**, each with a "1 in N" rarity
+- Unlimited is one continuous journey through 9 biomes: Meadow → Shores → Autumn Woods → Dunes → Snowy Peaks → Moonlit Moors → Neon Alley → Candy Canyon → The Moon (then it loops)
+- **◀ BACK / Esc** saves your chase, timer included, so you can resume it later from the title screen
 - Typos and plurals are forgiven, and it runs fully static on GitHub Pages (no server)
 
 ## Play locally
@@ -27,8 +29,20 @@ Krillion-type games measure rarity from what real players type. A static site ha
 
 Scoring: `metres = 40 × log10(N)`, so a 1-in-10 answer = 40 m, 1-in-1,000 = 120 m, and 1-in-100,000 = 200 m.
 
-## Adding prompts
-Edit `tools/categories.py` (comma-separated, most common first, `a|b` for aliases), then:
+## Getting more prompts (the scalable way)
+Every prompt is multiplied automatically: the game makes **"…starting with P"** remixes for each letter that has at least 8 answers. So each new prompt you add brings roughly 5 more with it.
+
+To add prompts in bulk, use the AI generator:
+```bash
+pip install anthropic wordfreq
+export ANTHROPIC_API_KEY=sk-ant-...           # from console.anthropic.com
+python tools/generate_prompts.py 50           # generate 50 from tools/prompt_ideas.txt
+python tools/build_data.py ../corpora
+```
+`tools/prompt_ideas.txt` already has about 400 prompt ideas ready to go. Add more lines to it whenever you like. Each generated list lands in `tools/generated/` as a plain text file, so skim them and delete or edit any bad ones before publishing. It costs roughly 1-2p per prompt.
+
+## Adding prompts by hand
+Edit `tools/categories.py` or `tools/categories_more.py` (comma-separated, most common first, `a|b` for aliases), then:
 ```bash
 pip install wordfreq
 git clone --depth 1 https://github.com/dariusk/corpora.git ../corpora   # optional

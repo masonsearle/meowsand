@@ -1,0 +1,429 @@
+# One prompt per line. generate_prompts.py fills in any that don't have a list yet.
+# Add as many as you like: every one becomes a new prompt (plus letter remixes).
+Name a bird of prey
+Name a type of fish you can eat
+Name a type of shark
+Name a type of whale
+Name a breed of chicken
+Name a breed of cow
+Name a breed of sheep
+Name a type of snake
+Name a type of spider
+Name a type of butterfly
+Name a type of monkey or ape
+Name a type of deer
+Name a marsupial
+Name an endangered animal
+Name an animal found in Africa
+Name an animal found in Australia
+Name an animal found in the Arctic
+Name a nocturnal animal
+Name an animal with stripes
+Name an animal with spots
+Name a houseplant
+Name a type of cactus or succulent
+Name a type of mushroom
+Name a weed
+Name a herb you can grow
+Name a type of potato dish
+Name a type of rice dish
+Name a type of noodle
+Name a Chinese takeaway dish
+Name a Thai dish
+Name an Italian dish
+Name a French food
+Name a Spanish food
+Name a Greek food
+Name a Middle Eastern food
+Name a Korean food
+Name a street food
+Name a barbecue food
+Name a picnic food
+Name a party food
+Name a roast dinner item
+Name a pie
+Name a pastry
+Name a type of sausage dish
+Name a seafood dish
+Name a salad
+Name a dip
+Name a type of jam or spread
+Name a smoothie ingredient
+Name a type of milk
+Name a type of coffee drink
+Name a type of tea
+Name a beer brand
+Name a spirit or liquor
+Name a wine grape
+Name a juice
+Name a milkshake flavour
+Name a doughnut flavour
+Name a cupcake flavour
+Name a sandwich filling
+Name a jelly bean flavour
+Name a fast food menu item
+Name a cooking method
+Name a kitchen utensil
+Name a baking ingredient
+Name a pantry staple
+Name something in a fridge
+Name something in a garden
+Name something in a garage
+Name something in a bedroom
+Name something in a living room
+Name something in an office
+Name something in a classroom
+Name something in a hospital
+Name something in a supermarket
+Name something at a fairground
+Name something at a zoo
+Name something at a farm
+Name something at a wedding
+Name something at a birthday party
+Name something at a football match
+Name something at an airport
+Name something at the cinema
+Name something in a museum
+Name something in a castle
+Name something on a pirate ship
+Name something in a haunted house
+Name something in a forest
+Name something underwater
+Name something in the desert
+Name something in a city
+Name something on a farm
+Name something in a hospital
+Name something you find in a handbag
+Name something in a pencil case
+Name something in a toolbox
+Name something in a first aid kit
+Name something in a lunchbox
+Name something in a wallet
+Name something you recycle
+Name something made of wood
+Name something made of glass
+Name something made of metal
+Name something made of plastic
+Name something made of paper
+Name something soft
+Name something sticky
+Name something smelly
+Name something loud
+Name something hot
+Name something sharp
+Name something spiky
+Name something fluffy
+Name something tiny
+Name something huge
+Name something heavy
+Name something fast
+Name something slow
+Name something shiny
+Name something scary
+Name something that bounces
+Name something that melts
+Name something that floats
+Name something that grows
+Name something that buzzes
+Name something that glows
+Name something with a tail
+Name something with legs
+Name something with wings
+Name something with buttons
+Name something with a screen
+Name something with strings
+Name something with keys
+Name something with teeth
+Name something you plug in
+Name something you can fold
+Name something you can open
+Name something you can climb
+Name something you can wear on your head
+Name something you can wear on your feet
+Name something you sit on
+Name something you throw
+Name something you blow
+Name something you can pop
+Name something you can kick
+Name something you can ride
+Name something you can catch
+Name something you can collect
+Name something you can bake
+Name something you can grow
+Name something you can carve
+Name something you can light
+Name something you can lose
+Name something you can break
+Name something you can borrow
+Name something you can hold
+Name something you can smell
+Name something you can hear
+Name something that is red
+Name something that is green
+Name something that is blue
+Name something that is orange
+Name something that is pink
+Name something that is purple
+Name something that is white
+Name something that is black
+Name something that is brown
+Name something that is gold
+Name something with stripes
+Name something with spots
+Name a emoji
+Name a feeling or emotion
+Name a personality trait
+Name a compliment
+Name a word for happy
+Name a word for big
+Name a word for small
+Name a word for walk
+Name a word for said
+Name a word that rhymes with dog
+Name a word that rhymes with mouse
+Name a word that rhymes with fish
+Name a word that rhymes with day
+Name a word that rhymes with light
+Name a palindrome
+Name a compound word
+Name a long word
+Name a word with a silent letter
+Name a magic spell
+Name a superpower
+Name a villain
+Name a pirate
+Name a robot
+Name a famous dog
+Name a famous horse
+Name a famous bear
+Name a famous mouse or rat
+Name a famous duck
+Name a famous detective
+Name a famous spy
+Name a famous princess
+Name a famous king or queen
+Name a famous queen
+Name a famous explorer
+Name a famous inventor
+Name a famous inventor's invention
+Name an invention
+Name a famous composer
+Name a famous rapper
+Name a famous comedian
+Name a famous chef
+Name a famous athlete
+Name a famous tennis player
+Name a famous boxer
+Name a famous F1 driver
+Name a famous Olympian
+Name a famous YouTuber
+Name a famous magician
+Name a famous philosopher
+Name a famous poet
+Name a famous Roman
+Name a famous Egyptian pharaoh
+Name a famous ship
+Name a famous battle
+Name a famous war
+Name a famous bridge
+Name a famous building
+Name a famous museum
+Name a famous statue
+Name a famous street
+Name a famous park
+Name a famous painting
+Name a famous song
+Name a Christmas song
+Name a nursery rhyme
+Name a lullaby
+Name a musical
+Name a ballet
+Name an opera
+Name a Pixar film
+Name a DreamWorks film
+Name a Studio Ghibli film
+Name a Marvel film
+Name a horror film
+Name a Christmas film
+Name a film with a cat in it
+Name a TV quiz show
+Name a TV soap
+Name a cartoon show
+Name a sitcom
+Name a reality TV show
+Name a children's TV show
+Name a streaming service
+Name a TV channel
+Name a radio station
+Name a newspaper
+Name a magazine
+Name a website
+Name an app on your phone
+Name a computer brand
+Name a phone brand
+Name a camera brand
+Name a toy brand
+Name a toy
+Name a playground game
+Name a party game
+Name a drinking game
+Name a pub game
+Name a garden game
+Name a game show
+Name a pokemon type
+Name a chess piece
+Name a poker hand
+Name a yoga pose
+Name a gym exercise
+Name a swimming stroke
+Name a dance move
+Name a skateboard trick
+Name a football position
+Name a cricket term
+Name a golf term
+Name a tennis term
+Name a type of race
+Name an Olympic event
+Name a type of ball
+Name a piece of sports equipment
+Name a type of boat
+Name a type of aircraft
+Name a type of train
+Name a type of road
+Name a type of building
+Name a type of house
+Name a room in a house
+Name a type of shop
+Name a type of restaurant
+Name a type of doctor
+Name a type of scientist
+Name a type of engineer
+Name a type of artist
+Name a type of police officer
+Name a royal title
+Name a military rank
+Name a religious figure
+Name a saint
+Name a Norse god
+Name a Roman god
+Name an Egyptian god
+Name a Hindu god
+Name a creature from folklore
+Name a ghost or spirit
+Name a fantasy race
+Name a dragon
+Name a zodiac sign
+Name a Chinese zodiac animal
+Name a birthstone
+Name a precious metal
+Name a rock or mineral
+Name a type of cloud
+Name a natural disaster
+Name a type of landform
+Name a body of water
+Name a desert
+Name a forest or jungle
+Name a lake
+Name a sea
+Name a waterfall
+Name a volcano
+Name a canyon or valley
+Name a national park
+Name a city in Asia
+Name a city in Africa
+Name a city in South America
+Name a city in Canada
+Name a city in Australia
+Name a Scottish town or city
+Name a Welsh town or city
+Name an Irish town or city
+Name an English county
+Name a country in Africa
+Name a country in Asia
+Name a country in South America
+Name a country in Europe
+Name a country that starts and ends with A
+Name a country beginning with S
+Name an Australian state or territory
+Name a Canadian province
+Name a famous university
+Name a famous school
+Name an airline
+Name an airport
+Name a hotel chain
+Name a car model
+Name a motorbike brand
+Name a bicycle part
+Name a car part
+Name a computer part
+Name a musical term
+Name a type of guitar
+Name a part of a flower
+Name a part of a tree
+Name a part of a castle
+Name a part of a ship
+Name a part of a bike
+Name a type of knot
+Name a unit of measurement
+Name a unit of time
+Name a number
+Name a Roman numeral
+Name a Greek letter
+Name a symbol on a keyboard
+Name a punctuation mark
+Name a font
+Name a currency symbol
+Name a programming term
+Name a maths term
+Name a science word
+Name a chemistry word
+Name a body organ
+Name a bone in the body
+Name a muscle
+Name an illness
+Name a vitamin or mineral
+Name a medicine
+Name a phobia
+Name a type of fabric
+Name a pattern
+Name a type of shoe
+Name a type of hat
+Name a type of bag
+Name an accessory
+Name a piece of jewellery
+Name a makeup item
+Name a perfume brand
+Name a designer brand
+Name a shoe brand
+Name a sports brand
+Name a car colour
+Name a paint colour
+Name a shade of blue
+Name a shade of green
+Name a shade of red
+Name a flavour of crisps in the USA
+Name a vegetable you'd put in a stir fry
+Name a fruit you'd put in a smoothie
+Name a topping for a burger
+Name a topping for a baked potato
+Name a topping for pancakes
+Name a filling for a pie
+Name something you put in a sandwich
+Name something you dip in chocolate
+Name something you put on toast
+Name something you eat with chips
+Name something you eat at Christmas
+Name something you eat at the cinema
+Name a cat sound
+Name a thing a cat does
+Name a cat body part
+Name a place a cat sleeps
+Name a famous internet cat
+Name something cats love
+Name a type of cat food
+Name a cat colour or pattern
+Name a dog trick
+Name a dog name
+Name a hamster name
+Name a goldfish name
+Name a horse name
