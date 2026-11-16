@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meowsand — one in a thousand</title>
+<meta name="description" content="Name things. Rarer answers roll the yarn further. One in a thousand, meowsand.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧶</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="crt"></div>
+
+<!-- TITLE -->
+<section id="title" class="screen active">
+  <h1 class="logo" data-text="MEOWSAND">MEOWSAND</h1>
+  <p class="tagline">THE DAILY CHASE</p>
+  <p class="sub">7 prompts · 25 seconds each · rarer answers roll further</p>
+  <div class="menu">
+    <button id="btnDaily" class="big">▶ DAILY CHASE ◀</button>
+    <button id="btnUnlimited" class="mid">∞ UNLIMITED <span class="pill">endless</span></button>
+    <details class="how">
+      <summary>▸ HOW TO PLAY</summary>
+      <ol>
+        <li>You get a prompt like <b>“Name a fruit”</b>.</li>
+        <li>Type any valid answer within 25 seconds. Typos are forgiven.</li>
+        <li>The rarer your answer, the further the yarn rolls. Say “apple” and it barely moves. Say “jabuticaba” and the cat's in for a sprint.</li>
+        <li>Answers rarer than <b>1 in 1,000</b> are <b>one in a meowsand</b>.</li>
+        <li>Everyone gets the same 7 prompts in the Daily Chase. Unlimited never runs out.</li>
+      </ol>
+    </details>
+    <div id="stats" class="stats"></div>
+  </div>
+  <p id="loading" class="loading">untangling yarn…</p>
+</section>
+
+<!-- PLAY -->
+<section id="play" class="screen">
+  <div class="hud">
+    <span id="round">1 / 7</span>
+    <span id="mode">DAILY</span>
+    <span><b id="dist">0</b> m</span>
+  </div>
+  <div class="card">
+    <div class="timer"><div id="timerBar"></div></div>
+    <h2 id="prompt">Name a fruit</h2>
+    <form id="answerForm" autocomplete="off">
+      <input id="answer" type="text" placeholder="type an answer…" autocapitalize="off" spellcheck="false" maxlength="60">
+      <button type="submit">GO</button>
+    </form>
+    <div id="feedback" class="feedback"></div>
+    <div id="result" class="result hidden">
+      <div class="res-answer" id="resAnswer"></div>
+      <div class="res-odds" id="resOdds"></div>
+      <div class="res-tier" id="resTier"></div>
+      <div class="res-top" id="resTop"></div>
+      <button id="btnNext" class="mid">NEXT ▶</button>
+    </div>
+    <button id="btnSkip" class="link">give up on this one</button>
+  </div>
+</section>
+
+<!-- END -->
+<section id="end" class="screen">
+  <div class="card wide">
+    <p class="tagline" id="endTitle">CHASE COMPLETE</p>
+    <div class="total"><span id="endDist">0</span> m</div>
+    <div class="endtier" id="endTier"></div>
+    <ol id="endList" class="endlist"></ol>
+    <div class="row">
+      <button id="btnShare" class="mid">SHARE 📋</button>
+      <button id="btnAgain" class="mid">∞ PLAY UNLIMITED</button>
+      <button id="btnHome" class="link">home</button>
+    </div>
+    <p id="shareMsg" class="sharemsg"></p>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
