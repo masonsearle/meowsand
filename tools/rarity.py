@@ -25,7 +25,7 @@ def parse_hand(text, seen=None):
     seen = set() if seen is None else seen
     items = []
     for raw in re.split(r"[,\n]", text):
-        names = [x.strip() for x in raw.strip().split("|") if x.strip()]
+        names = [x.strip().rstrip("?").strip() for x in raw.strip().split("|") if x.strip().rstrip("?").strip()]
         if not names:
             continue
         keys = {norm(n) for n in names} - {""}

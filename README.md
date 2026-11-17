@@ -5,8 +5,8 @@ A cat-themed, Krillion-style word game. Name a thing, and the **rarer** your ans
 - **Daily Chase**: 7 prompts, 25 seconds each, the same for everyone that day
 - **Unlimited**: endless chases, never locked behind a daily limit
 - **Two packs**, switchable on the title screen. Each has its own daily chase, streak and journey:
-  - 🧶 **Classic**: 307 prompts and about 284,000 answers (34 of them borrowed from the Movies pack). Every song and act from 68 years of the Billboard Hot 100, 21,000 board games, 11,000 video games, 10,000 books, 32,000 world cities, real rhyming words from the CMU dictionary, and more
-  - 🎬 **Movies**: 171 prompts and about 100,000 answers, with its own Hollywood-themed scenery. Genres, decades, 40 actors' filmographies, directors, franchises, villains, characters, and "movie with a colour in its title"-style prompts
+  - 🧶 **Classic**: 475 prompts and about 305,000 answers (34 of them borrowed from the Movies pack). Every song and act from 68 years of the Billboard Hot 100, 21,000 board games, 11,000 video games, 10,000 books, 32,000 world cities, famous people (athletes, golfers, boxers, YouTubers, royals, pharaohs…), world food, every Pokémon type, game genres and franchises, real rhyming words from the CMU dictionary, and more
+  - 🎬 **Movies**: 335 prompts and about 120,000 answers, with its own Hollywood-themed scenery. Genres, genre-by-decade ("a horror movie from the 80s"), about 100 actors' filmographies, title words, directors, franchises, villains, characters, and "movie with a colour in its title"-style prompts
 - Unlimited is one continuous journey through 9 biomes: Meadow → Shores → Autumn Woods → Dunes → Snowy Peaks → Moonlit Moors → Neon Alley → Candy Canyon → The Moon (then it loops)
 - **◀ BACK / Esc** saves your chase, timer included, so you can resume it later from the title screen
 - Typos and plurals are forgiven, and it runs fully static on GitHub Pages (no server)

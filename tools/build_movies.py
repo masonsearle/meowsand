@@ -197,6 +197,56 @@ for q, tags, promote, head in GENRES_MORE:
     _extra.append((q, pred, promote))
 PROMPTS[-1:-1] = _extra  # keep "Name a movie" last
 
+# ---- round 5: genre x decade, more actors, title words ----
+GENRE_DECADE = [("horror movie", ("Horror", "Slasher", "Supernatural"), "Name a horror movie"), ("comedy", ("Comedy",), "Name a comedy movie"),
+                ("action movie", ("Action",), "Name an action movie"), ("sci-fi movie", ("Science Fiction",), "Name a sci-fi movie"),
+                ("animated movie", ("Animated",), "Name an animated movie"), ("romantic movie", ("Romance",), "Name a romantic movie"),
+                ("thriller", ("Thriller", "Suspense"), "Name a thriller"), ("war movie", ("War",), "Name a war movie"),
+                ("fantasy movie", ("Fantasy",), "Name a fantasy movie"), ("crime movie", ("Crime",), "Name a crime or gangster movie"),
+                ("family movie", ("Family",), "Name a family movie"), ("musical", ("Musical",), "Name a musical"),
+                ("western", ("Western",), "Name a western"), ("teen movie", ("Teen",), "Name a teen movie"),
+                ("superhero movie", ("Superhero",), "Name a superhero movie"), ("sports movie", ("Sports", "Sport"), "Name a sports movie")]
+by_title = {}
+for f in FILMS:
+    by_title.setdefault(norm(f["title"]), []).append((f["year"], set(f.get("genres", []))))
+def head_in_decade(head_q, d0, tags):
+    keep = []
+    for names in parse_hand(HEADS.get(head_q, "")):
+        hits = [(y, g) for x in names for (y, g) in by_title.get(norm(x), [])]
+        # that decade's film with this title must itself be in the genre (no remakes / same-name films)
+        if any(d0 <= y < d0 + 10 and (g & set(tags)) for y, g in hits):
+            keep.append("|".join(names))
+    return ", ".join(keep)
+gd = []
+for label, tags, head_q, in GENRE_DECADE:
+    for d0 in (1970, 1980, 1990, 2000, 2010):
+        q = f"Name a{'n' if label[0] in 'aeiou' else ''} {label} from the {str(d0)[2:]}s"
+        pred = (lambda f, t=set(tags), a=d0: a <= f["year"] < a + 10 and bool(t & set(f.get("genres", []))))
+        if sum(1 for f in FILMS if pred(f)) >= 25:
+            HEADS[q] = head_in_decade(head_q, d0, tags)
+            gd.append((q, pred, 40))
+TITLE_WORDS = ["dead", "girl", "king", "war", "star", "house", "day", "christmas", "blood", "death", "black", "life", "time", "home",
+               "world", "dog", "boy", "city", "dark", "story", "secret", "big", "american", "lost", "last", "little", "great", "baby"]
+for w in TITLE_WORDS:
+    q = f"Name a movie with '{w}' in its title"
+    if not any(q == x[0] for x in PROMPTS):
+        gd.append((q, title_re(r"\b" + w + r"s?\b"), 80))
+PROMPTS[-1:-1] = gd
+
+# more actors, picked by how well-known their films are; their best-known films lead
+_vs, _cnt = collections.Counter(), collections.Counter()
+for f in FILMS:
+    if f["year"] >= 1965:
+        for a in f.get("cast", [])[:5]:
+            _cnt[a] += 1
+            _vs[a] += votes.get(norm(f["title"]), 0)
+SKIP_ACTORS = {"Scott Glenn", "Ving Rhames", "Djimon Hounsou", "Chris Cooper", "Sean Astin", "Jason Lee", "Aaron Eckhart", "Daryl Hannah",
+               "Brian Cox", "Stellan Skarsgård", "Seann William Scott", "Ed Harris", "Tim Robbins", "John Hurt", "Guy Pearce", "Clive Owen",
+               "Jennifer Connelly", "Laurence Fishburne", "Tommy Lee Jones? "}
+AUTO_ACTORS = [a for a, v in _vs.most_common(450) if _cnt[a] >= 18 and a not in ACTORS and a not in SKIP_ACTORS][:60]
+for a in AUTO_ACTORS:
+    ACTORS[a] = ""
+
 # "Name a movie": interleave every hand-ordered head so modern hits rank properly
 lists = [parse_hand(HEADS[q]) for q in HEADS if q.startswith("Name a") and "actor" not in q and "director" not in q]
 lists += [parse_hand(v) for v in ACTORS.values()]
@@ -228,7 +278,7 @@ for q, pred, promote in PROMPTS:
     prompts.append(build_one(q, HEADS.get(q, ""), film_tail(pred), promote))
 for name, films in ACTORS.items():
     q, tail = actor_prompt(name)
-    prompts.append(build_one(q, films, tail, 0))
+    prompts.append(build_one(q, films, tail, 0 if films else 12))
 for q, text in CLOSED.items():
     tail = []
     if q == "Name a famous film director":

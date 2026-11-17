@@ -18,6 +18,7 @@ from categories_more import MORE
 from categories_extend import EXTEND, NEW
 from includes import INCLUDES
 from categories_v4 import V4, INCLUDES_V4
+from categories_v5 import V5
 import datasets as D
 try:
     from categories_extend2 import EXTEND2
@@ -31,6 +32,7 @@ OUT = os.path.join(ROOT, "data", "prompts.json")
 
 PROMPTS = dict(HANDWRITTEN)
 PROMPTS.update(V4)
+PROMPTS.update({k: v for k, v in V5.items() if k not in PROMPTS})
 MORE = dict(MORE)
 MORE["Name a singer or band"] = MORE.pop("Name a famous musician or band")
 PROMPTS.update(MORE)
@@ -215,6 +217,76 @@ V4_DATA = {
     "Name a word that rhymes with tree": (lambda: D.rhymes("tree"), None),
     "Name a good name for a dog": (lambda: D.baby_names(), None),
 }
+# ---- round 5: more data-driven prompts ----
+SONG_ARTISTS_5 = ["Future", "The Weeknd", "Elton John", "Kenny Chesney", "Tim McGraw", "Madonna", "Lil Baby", "Bad Bunny", "Ariana Grande",
+    "Kendrick Lamar", "Mariah Carey", "Bruno Mars", "Keith Urban", "Ludacris", "Ed Sheeran", "Michael Jackson", "Jason Aldean", "Luke Combs",
+    "Eminem", "21 Savage", "Stevie Wonder", "Travis Scott", "P!nk", "Carrie Underwood", "Luke Bryan", "Rod Stewart", "Blake Shelton",
+    "Pitbull", "Whitney Houston", "Cardi B", "T-Pain", "James Brown", "Prince", "Mary J. Blige", "Diana Ross", "The Beatles", "Katy Perry",
+    "Young Thug", "Akon", "The Rolling Stones", "Marvin Gaye", "George Strait", "Neil Diamond", "The Beach Boys", "Nelly", "Toby Keith",
+    "Britney Spears", "Ray Charles", "50 Cent", "Snoop Dogg", "Ne-Yo", "Kenny Rogers", "The Temptations", "J. Cole", "Phil Collins",
+    "Janet Jackson", "Flo Rida", "DJ Khaled", "Christina Aguilera", "Juice WRLD", "Alicia Keys", "Aerosmith", "Olivia Newton-John",
+    "Dionne Warwick", "Barbra Streisand", "Khalid", "Smokey Robinson", "Eric Church", "Thomas Rhett", "Dierks Bentley"]
+for _a in SONG_ARTISTS_5:
+    _q = f"Name a song by {_a}"
+    if _q not in PROMPTS:
+        V4_DATA[_q] = ((lambda a=_a: D.songs(a)), None)
+BOOK_AUTHORS_5 = ["J.K. Rowling", "Stephenie Meyer", "Rick Riordan", "William Shakespeare", "Nicholas Sparks", "C.S. Lewis", "James Patterson",
+    "George R.R. Martin", "John Grisham", "Neil Gaiman", "Jodi Picoult", "Charles Dickens", "Dr. Seuss", "Paulo Coelho", "Sophie Kinsella",
+    "Douglas Adams", "Michael Crichton", "Dean Koontz", "Ernest Hemingway", "Anne Rice", "Brandon Sanderson", "Haruki Murakami",
+    "Isaac Asimov", "Margaret Atwood", "Colleen Hoover", "Ken Follett", "Lee Child", "Arthur Conan Doyle", "Tom Clancy", "Bill Bryson",
+    "David Baldacci", "Jeff Kinney", "Edgar Allan Poe", "Kristin Hannah", "John Steinbeck", "Jane Austen", "Mark Twain", "Oscar Wilde", "Philip Pullman", "Enid Blyton"]
+for _a in BOOK_AUTHORS_5:
+    _q = f"Name a book by {_a}"
+    if not any(_a.split()[-1] in q for q in PROMPTS if "book" in q or "novel" in q):
+        V4_DATA[_q] = ((lambda a=_a: D.books_by(a)), None)
+POKE_HEADS = {
+    "rock": "onix, geodude, graveler, golem, rhyhorn, rhydon, aerodactyl, omanyte, kabuto, sudowoodo, tyranitar, larvitar, nosepass, aron, lairon, aggron, cranidos, rampardos, rockruff, lycanroc, boldore, gigalith, roggenrola, tyrunt",
+    "ground": "diglett, dugtrio, sandshrew, sandslash, cubone, marowak, rhyhorn, rhydon, onix, geodude, phanpy, donphan, groudon, gible, garchomp, krookodile, excadrill, mudsdale, sandaconda, swampert, whiscash, flygon, hippowdon",
+    "ice": "lapras, articuno, jynx, cloyster, dewgong, sneasel, weavile, swinub, piloswine, mamoswine, snorunt, glalie, froslass, glaceon, regice, kyurem, vanillite, vanilluxe, cubchoo, beartic, alolan vulpix, eiscue, frosmoth, snom",
+    "fighting": "machop, machoke, machamp, hitmonlee, hitmonchan, hitmontop, primeape, mankey, poliwrath, heracross, lucario, riolu, blaziken, infernape, emboar, makuhita, hariyama, meditite, medicham, conkeldurr, sawk, throh, hawlucha, pangoro",
+    "poison": "ekans, arbok, koffing, weezing, grimer, muk, nidoran, nidoking, nidoqueen, gengar, zubat, golbat, crobat, tentacool, tentacruel, venomoth, beedrill, weedle, bulbasaur, oddish, gloom, vileplume, seviper, skuntank, toxapex, salazzle",
+    "bug": "caterpie, metapod, butterfree, weedle, kakuna, beedrill, scyther, pinsir, paras, parasect, venonat, venomoth, heracross, scizor, ledyba, spinarak, ariados, wurmple, beautifly, dustox, kricketot, kricketune, combee, vespiquen, volcarona, vikavolt, grubbin, genesect",
+    "steel": "magnemite, magneton, steelix, scizor, skarmory, aron, lairon, aggron, metagross, beldum, metang, lucario, dialga, registeel, jirachi, bronzong, klink, excadrill, ferrothorn, aegislash, honedge, corviknight, melmetal, zacian, tinkaton",
+    "dark": "umbreon, tyranitar, houndoom, houndour, sneasel, weavile, murkrow, honchkrow, absol, sableye, darkrai, zoroark, zorua, hydreigon, krookodile, bisharp, greninja, incineroar, yveltal, grimmsnarl, obstagoon, mightyena, poochyena, scrafty",
+    "fairy": "clefairy, clefable, jigglypuff, wigglytuff, togepi, togekiss, sylveon, gardevoir, mr. mime, snubbull, granbull, azurill, marill, azumarill, mawile, flabebe, florges, spritzee, aromatisse, swirlix, slurpuff, dedenne, xerneas, mimikyu, tinkaton, hatterene",
+    "normal": "snorlax, eevee, meowth, persian, rattata, raticate, pidgey, jigglypuff, chansey, blissey, kangaskhan, tauros, ditto, porygon, lickitung, sentret, furret, aipom, ambipom, teddiursa, ursaring, slakoth, slaking, zigzagoon, linoone, whismur, loudred, exploud, bidoof, bibarel, lillipup, stoutland, arceus",
+}
+for _t, _h in POKE_HEADS.items():
+    V4_DATA[f"Name a{'n' if _t[0] in 'aeiou' else ''} {_t}-type Pokémon"] = ((lambda t=_t: D.pokemon_of_type(t)), _h)
+_G = lambda **kw: (lambda: D.video_games_where(**kw))
+_N = lambda rx: (lambda: [e for e in D.video_games() if re.search(rx, e[0][0], re.I)])
+V4_DATA.update({
+    "Name a role-playing game": (_G(genre="Role-Playing"), "pokemon, final fantasy, the elder scrolls v skyrim|skyrim, the witcher 3|the witcher, fallout, mass effect, dragon age, baldur's gate 3|baldur's gate, kingdom hearts, dark souls, elden ring, persona 5|persona, dragon quest, chrono trigger, diablo, world of warcraft, cyberpunk 2077, star wars knights of the old republic|kotor, xenoblade chronicles, fable, oblivion, morrowind, divinity original sin, undertale, earthbound, paper mario, octopath traveler, nier automata, monster hunter, path of exile"),
+    "Name a platform game": (_G(genre="Platform"), "super mario bros., sonic the hedgehog, crash bandicoot, spyro, super mario 64, donkey kong country, rayman, celeste, hollow knight, cuphead, ori and the blind forest, little big planet, banjo-kazooie, kirby, mega man, castlevania, metroid, super meat boy, ratchet and clank, jak and daxter, sly cooper, astro bot, shovel knight, super mario odyssey, yoshi's island, limbo, inside, braid, it takes two, a hat in time"),
+    "Name a puzzle game": (_G(genre="Puzzle"), "tetris, candy crush, portal, bejeweled, wordle, minesweeper, monument valley, the witness, lemmings, dr. mario, puzzle bobble|bust-a-move, professor layton, brain training, the talos principle, baba is you, return of the obra dinn, cut the rope, angry birds, 2048, sudoku, picross, peggle, zuma, world of goo, braid, fez, the room, captain toad, myst, the 7th guest"),
+    "Name a simulation game": (_G(genre="Simulation"), "the sims, animal crossing, stardew valley, minecraft, cities skylines, sim city, rollercoaster tycoon, planet coaster, farming simulator, flight simulator, euro truck simulator, two point hospital, theme hospital, nintendogs, harvest moon, house flipper, powerwash simulator, goat simulator, surgeon simulator, viva pinata, zoo tycoon, planet zoo, kerbal space program, rimworld, the sims 4, tamagotchi, jurassic world evolution, frostpunk, cooking mama, spore"),
+    "Name a strategy game": (_G(genre="Strategy"), "civilization, age of empires, starcraft, command and conquer, total war, xcom, warcraft, company of heroes, stellaris, crusader kings, europa universalis, hearts of iron, advance wars, fire emblem, pikmin, plants vs zombies, clash of clans, clash royale, into the breach, red alert, halo wars, homeworld, dune ii, anno, tropico, worms, valkyria chronicles, northgard, they are billions, endless legend"),
+    "Name an adventure game": (_G(genre="Adventure"), "the legend of zelda|zelda, uncharted, tomb raider, the last of us, red dead redemption, assassin's creed, god of war, monkey island, grim fandango, life is strange, the walking dead, heavy rain, detroit become human, until dawn, firewatch, journey, shadow of the colossus, ico, okami, beyond good and evil, broken sword, day of the tentacle, myst, l.a. noire, outer wilds, sea of thieves, minecraft dungeons, ghost of tsushima, horizon zero dawn, death stranding"),
+    "Name an Xbox game": (_G(platforms={"XB", "X360", "XOne"}), "halo, gears of war, forza horizon, fable, sea of thieves, minecraft, call of duty, grand theft auto, fifa, kinect sports, crackdown, banjo-kazooie nuts and bolts, viva pinata, perfect dark zero, alan wake, state of decay, starfield, the elder scrolls v skyrim, fallout 3, mass effect, dead rising, lost odyssey, project gotham racing, ori and the blind forest, cuphead, halo infinite, forza motorsport, hellblade, grounded, microsoft flight simulator"),
+    "Name a Sonic game": (_N(r"sonic"), "sonic the hedgehog, sonic 2, sonic 3, sonic and knuckles, sonic adventure, sonic adventure 2, sonic heroes, sonic generations, sonic mania, sonic frontiers, sonic colors, sonic unleashed, sonic forces, sonic cd, sonic the hedgehog 2006, sonic riders, shadow the hedgehog, sonic and sega all-stars racing, mario and sonic at the olympic games, sonic lost world, sonic rush, sonic advance, sonic spinball, sonic r, team sonic racing, sonic superstars, sonic x shadow generations, sonic dash, sonic boom, sonic 3d blast"),
+    "Name a Zelda game": (_N(r"zelda"), "breath of the wild, tears of the kingdom, ocarina of time, majora's mask, twilight princess, the wind waker, a link to the past, link's awakening, skyward sword, the legend of zelda, zelda ii the adventure of link, a link between worlds, the minish cap, phantom hourglass, spirit tracks, oracle of ages, oracle of seasons, four swords, tri force heroes, echoes of wisdom, hyrule warriors, age of calamity, cadence of hyrule"),
+    "Name a Pokémon game": (_N(r"pok[eé]mon"), "pokemon red, pokemon blue, pokemon yellow, pokemon gold, pokemon silver, pokemon crystal, pokemon ruby, pokemon sapphire, pokemon emerald, pokemon firered, pokemon diamond, pokemon pearl, pokemon platinum, pokemon heartgold, pokemon black, pokemon white, pokemon x, pokemon y, pokemon sun, pokemon moon, pokemon sword, pokemon shield, pokemon scarlet, pokemon violet, pokemon legends arceus, pokemon go, pokemon let's go pikachu, pokemon snap, pokemon stadium, pokemon mystery dungeon, pokemon unite, pokemon colosseum, pokemon legends z-a, pokemon brilliant diamond"),
+    "Name a Final Fantasy game": (_N(r"final fantasy"), "final fantasy vii|final fantasy 7, final fantasy x|final fantasy 10, final fantasy xiv|final fantasy 14, final fantasy vi|final fantasy 6, final fantasy ix|final fantasy 9, final fantasy viii|final fantasy 8, final fantasy xv|final fantasy 15, final fantasy xvi|final fantasy 16, final fantasy xii|final fantasy 12, final fantasy iv|final fantasy 4, final fantasy, final fantasy xiii|final fantasy 13, final fantasy vii remake, final fantasy vii rebirth, final fantasy tactics, final fantasy x-2, final fantasy xi, final fantasy v, final fantasy iii, final fantasy ii, dissidia, crisis core"),
+    "Name a LEGO video game": (_N(r"^lego"), "lego star wars, lego batman, lego harry potter, lego marvel super heroes, lego indiana jones, lego the lord of the rings, lego the hobbit, lego jurassic world, lego city undercover, lego dimensions, lego the incredibles, lego avengers, lego pirates of the caribbean, lego the skywalker saga, lego batman 2, lego movie videogame, lego worlds, lego island, lego racers, lego fortnite, lego horizon adventures, lego builder's journey, lego dc super-villains, lego marvel super heroes 2"),
+})
+CITY_HEADS = {
+    ("Name a city in China", "China", None): "beijing, shanghai, hong kong, shenzhen, guangzhou, chengdu, wuhan, xi'an, hangzhou, chongqing, nanjing, tianjin, macau, suzhou, harbin, qingdao, kunming, guilin, xiamen, dalian, shenyang, changsha, lhasa, sanya, urumqi, zhengzhou, jinan, hefei, fuzhou, ningbo",
+    ("Name a city in Brazil", "Brazil", None): "rio de janeiro|rio, sao paulo, brasilia, salvador, fortaleza, belo horizonte, manaus, recife, porto alegre, curitiba, belem, florianopolis, natal, goiania, campinas, santos, foz do iguacu, maceio, joao pessoa, cuiaba, vitoria, teresina, campo grande, aracaju, porto velho, paraty, buzios, ouro preto, olinda, petropolis",
+    ("Name a city in Mexico", "Mexico", None): "mexico city, cancun, guadalajara, monterrey, tijuana, acapulco, puerto vallarta, oaxaca, puebla, merida, playa del carmen, tulum, cabo san lucas|los cabos, chihuahua, juarez|ciudad juarez, leon, queretaro, san miguel de allende, veracruz, mazatlan, morelia, aguascalientes, durango, saltillo, hermosillo, culiacan, toluca, cuernavaca, guanajuato, zacatecas",
+    ("Name a city in Russia", "Russia", None): "moscow, st petersburg|saint petersburg, novosibirsk, yekaterinburg, kazan, sochi, vladivostok, kaliningrad, volgograd, murmansk, samara, omsk, nizhny novgorod, rostov-on-don, ufa, krasnoyarsk, perm, voronezh, irkutsk, yakutsk, chelyabinsk, sevastopol? , tula, yaroslavl, novgorod, archangelsk, khabarovsk, tomsk, saratov, grozny",
+    ("Name a city in the Netherlands", "Netherlands", None): "amsterdam, rotterdam, the hague|den haag, utrecht, eindhoven, groningen, maastricht, delft, haarlem, leiden, nijmegen, tilburg, breda, arnhem, zwolle, almere, den bosch|'s-hertogenbosch, enschede, apeldoorn, amersfoort, alkmaar, gouda, edam, volendam, zaandam, schiedam, dordrecht, hilversum, middelburg, leeuwarden",
+    ("Name a city in Portugal", "Portugal", None): "lisbon, porto, faro, albufeira, lagos, coimbra, braga, funchal, sintra, cascais, evora, aveiro, guimaraes, portimao, vilamoura, setubal, viseu, leiria, tavira, nazare, obidos, fatima, estoril, ponta delgada, vila nova de gaia, amadora, matosinhos, almada, viana do castelo, braganca",
+    ("Name a city in Greece", "Greece", None): "athens, thessaloniki, heraklion, patras, rhodes, chania, corfu, larissa, volos, ioannina, kalamata, mykonos, santorini|thira, kavala, nafplio, sparta, olympia, delphi, zakynthos, kos, alexandroupoli, rethymno, chalcis, piraeus, argos, corinth, lamia, katerini, serres, trikala",
+    ("Name a city in Turkey", "Turkey", None): "istanbul, ankara, izmir, antalya, bodrum, bursa, adana, konya, gaziantep, trabzon, fethiye, marmaris, alanya, kusadasi, side, dalaman, cappadocia? , kayseri, eskisehir, diyarbakir, mersin, samsun, edirne, canakkale, denizli, pamukkale? , erzurum, van, sanliurfa, hatay",
+    ("Name a city in Ireland", "Ireland", None): "dublin, cork, galway, limerick, waterford, kilkenny, killarney, sligo, drogheda, dundalk, wexford, athlone, tralee, ennis, letterkenny, kinsale, westport, carlow, navan, bray, swords, naas, tullamore, mullingar, clonmel, cobh, dingle, howth, dun laoghaire, kildare",
+    ("Name a city in Texas", "United States", "Texas"): "houston, dallas, austin, san antonio, fort worth, el paso, arlington, corpus christi, plano, lubbock, laredo, irving, amarillo, waco, galveston, brownsville, mcallen, frisco, abilene, odessa, midland, beaumont, denton, round rock, killeen, college station, tyler, wichita falls, san marcos, sugar land",
+    ("Name a city in California", "United States", "California"): "los angeles, san francisco, san diego, sacramento, san jose, oakland, fresno, long beach, anaheim, santa monica, malibu, beverly hills, palm springs, berkeley, pasadena, hollywood? , santa barbara, irvine, riverside, bakersfield, santa cruz, monterey, napa, carmel, stockton, modesto, burbank, glendale, santa ana, palo alto",
+    ("Name a city in Florida", "United States", "Florida"): "miami, orlando, tampa, jacksonville, tallahassee, fort lauderdale, key west, st petersburg, naples, sarasota, west palm beach, palm beach, daytona beach, gainesville, pensacola, clearwater, fort myers, boca raton, kissimmee, miami beach, cape coral, hollywood, st augustine, destin, panama city, ocala, lakeland, melbourne, cocoa beach, coral gables",
+    ("Name a city in New York State", "United States", "New York"): "new york city|new york, buffalo, rochester, albany, syracuse, yonkers, ithaca, niagara falls, poughkeepsie, utica, schenectady, binghamton, saratoga springs, white plains, new rochelle, mount vernon, troy, long beach, hempstead, the hamptons? , brooklyn? , ithaca, lake placid, cooperstown, woodstock, kingston, newburgh, elmira, jamestown, watertown",
+}
+for (_q, _c, _sub), _h in CITY_HEADS.items():
+    V4_DATA[_q] = ((lambda c=_c, sub=_sub: D.cities_in(c, sub)), _h)
+
 for _q, (_loader, _head) in V4_DATA.items():
     CUSTOM[_q] = (_loader, 0 if (_head or _q in DATA_HEADS) else 60, 0)
     if _head:
