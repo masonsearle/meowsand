@@ -5,8 +5,8 @@ A cat-themed, Krillion-style word game. Name a thing, and the **rarer** your ans
 - **Daily Chase**: 7 prompts, 25 seconds each, the same for everyone that day
 - **Unlimited**: endless chases, never locked behind a daily limit
 - **Two packs**, switchable on the title screen. Each has its own daily chase, streak and journey:
-  - 🧶 **Classic**: about 890 prompts and 32,000 answers. Singers include every act that has charted on the Billboard Hot 100 (1958–now), and languages include ISO languages plus creoles
-  - 🎬 **Movies**: about 820 prompts and 88,000 answers. Genres, decades, 40 actors' filmographies, directors, franchises, villains, characters, and "movie with a colour in its title"-style prompts
+  - 🧶 **Classic**: 161 prompts and about 196,000 answers. Every song and act from 68 years of the Billboard Hot 100, 21,000 board games, 11,000 video games, 10,000 books, 32,000 world cities, real rhyming words from the CMU dictionary, and more
+  - 🎬 **Movies**: 102 prompts and about 89,000 answers, with its own Hollywood-themed scenery. Genres, decades, 40 actors' filmographies, directors, franchises, villains, characters, and "movie with a colour in its title"-style prompts
 - Unlimited is one continuous journey through 9 biomes: Meadow → Shores → Autumn Woods → Dunes → Snowy Peaks → Moonlit Moors → Neon Alley → Candy Canyon → The Moon (then it loops)
 - **◀ BACK / Esc** saves your chase, timer included, so you can resume it later from the title screen
 - Typos and plurals are forgiven, and it runs fully static on GitHub Pages (no server)
@@ -22,6 +22,35 @@ python -m http.server 8000   # then open http://localhost:8000
 2. Repo → **Settings → Pages** → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Your game will be live at `https://<username>.github.io/meowsand/`.
 
+## Your cat
+Tap the cat on the title screen and it meows. **🐈 Customise cat** has 8 breeds (Shorthair, Maine Coon, Persian, Scottish Fold, Siamese, Bengal, Sphynx, Munchkin) and 13 coats. Your choice is saved in the browser.
+
+## Leaderboard setup (optional, about 5 minutes, free)
+The site is static, so scores need a tiny free database. Until you fill in `config.js`, the leaderboard simply stays hidden.
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open **SQL Editor** in the project, paste this and press **Run**:
+```sql
+create table scores (
+  id bigint generated always as identity primary key,
+  day date not null,
+  pack text not null check (pack in ('classic', 'movies')),
+  name text not null check (char_length(name) between 1 and 10),
+  score int not null check (score between 0 and 1600),
+  created_at timestamptz not null default now()
+);
+alter table scores enable row level security;
+create policy "anyone can read scores" on scores for select using (true);
+create policy "anyone can add today's score" on scores for insert
+  with check (day between current_date - 1 and current_date + 1);
+```
+3. Go to **Project Settings → API**, copy the **Project URL** and the **anon public** key into `config.js`, then push.
+
+Players can submit their Daily Chase score once per day per pack, under a name of up to 10 characters.
+Note: like any no-login web game, a determined person could post a fake score directly. If that happens, delete the row in Supabase's Table Editor.
+
+## Why lists rather than tagging every answer?
+Answers live in category lists, and prompts borrow from each other (`tools/includes.py`): every bird "flies", every dog breed is "an animal". That's tagging at the category level. Where a dataset already carries tags (films with genre, cast and year; songs with artist; cities with country), prompts are built straight from those tags. Hand-tagging 200,000 answers one by one would be slower and less accurate than this.
+
 ## "Technically true" answers
 Prompts borrow answers from each other (`tools/includes.py`), so every bird counts as something that flies, every dog breed is an animal, and any food is something in a kitchen. Each borrowed category has a weight for how often players would reach for it, so the rarity stays realistic.
 
@@ -31,8 +60,8 @@ In Movies, sequel numbers autocorrect (`tools/franchises.py`): "matrix 2" counts
 ```bash
 bash tools/fetch_sources.sh      # downloads ../corpora and ../sources (open datasets)
 pip install wordfreq
-python tools/build_data.py       # -> data/prompts.json  (Classic)
-python tools/build_movies.py     # -> data/movies.json   (Movies)
+python tools/build_data.py       # -> data/classic/ (Classic: one small file per prompt + index.json)
+python tools/build_movies.py     # -> data/movies/  (Movies)
 ```
 Open datasets used: [dariusk/corpora](https://github.com/dariusk/corpora), the [Billboard Hot 100 archive](https://github.com/utdata/rwd-billboard-data), [ISO language codes](https://github.com/datasets/language-codes), [Wikipedia film data](https://github.com/prust/wikipedia-movie-data) (36k films with cast and genres), and [vega-datasets movies](https://github.com/vega/vega-datasets) (IMDb vote counts for popularity).
 
@@ -46,7 +75,6 @@ Krillion-type games measure rarity from what real players type. A static site ha
 Scoring: `metres = 40 × log10(N)`, so a 1-in-10 answer = 40 m, 1-in-1,000 = 120 m, and 1-in-100,000 = 200 m.
 
 ## Getting more prompts (the scalable way)
-Every prompt is multiplied automatically: the game makes **"…starting with P"** remixes for each letter that has at least 8 answers. So each new prompt you add brings roughly 5 more with it.
 
 To add prompts in bulk, use the AI generator:
 ```bash
@@ -64,7 +92,7 @@ pip install wordfreq
 git clone --depth 1 https://github.com/dariusk/corpora.git ../corpora   # optional
 python tools/build_data.py && python tools/build_movies.py
 ```
-That rewrites `data/prompts.json`. Commit it and Pages redeploys.
+That rewrites the files in `data/`. Commit it and Pages redeploys.
 
 ## Upgrading to real player rarity (optional, later)
 Hook up a free backend (Supabase or Firebase): log each `(prompt, answer)` and blend live counts into `n` once a prompt has a few hundred plays. Keep the estimates as the fallback for cold starts.

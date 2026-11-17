@@ -228,7 +228,12 @@ prompts.append(build_one("Name a Disney film", HANDWRITTEN["Name a Disney film"]
 prompts.append(build_one("Name a film actor or actress", HEADS["Name a film actor or actress"], people_tail(), 300))
 
 # famous movie characters: superheroes, wizards and villains are movie characters too
-classic = {p["q"]: p["answers"] for p in json.load(open(os.path.join(ROOT, "data", "prompts.json"), encoding="utf8"))["prompts"]}
+import glob
+classic = {}
+for f in glob.glob(os.path.join(ROOT, "data", "classic", "*.json")):
+    if not f.endswith("index.json"):
+        d = json.load(open(f, encoding="utf8"))
+        classic[d["q"]] = d["answers"]
 for p in prompts:
     if p["q"] == "Name a famous movie character":
         have = {k for a in p["answers"] for k in a.get("k", [norm(a["a"])])}
@@ -278,8 +283,5 @@ for p in prompts:
 print("sequel aliases attached:", n_alias)
 
 prompts = [p for p in prompts if len(p["answers"]) >= 10]
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
-with open(OUT, "w", encoding="utf8") as f:
-    json.dump({"version": 2, "pack": "movies", "prompts": prompts}, f, separators=(",", ":"), ensure_ascii=False)
-total = sum(len(p["answers"]) for p in prompts)
-print(f"movies: {len(prompts)} prompts, {total} answers -> {OUT} ({os.path.getsize(OUT)//1024} KB)")
+from rarity import write_pack
+write_pack(os.path.join(ROOT, "data", "movies"), "movies", prompts)

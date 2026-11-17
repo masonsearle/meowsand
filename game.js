@@ -80,51 +80,31 @@ function findAnswer(p, raw) {
   return bd <= max ? best : null;
 }
 
-/* ---------- packs & prompt pool: base prompts + "starting with X" remixes ---------- */
+/* ---------- packs: an index plus one file per prompt, loaded only when played ---------- */
 const PACKS = {
-  classic: { file: "data/prompts.json", name: "CLASSIC", pfx: "", tag: "THE DAILY CHASE" },
-  movies: { file: "data/movies.json", name: "🎬 MOVIES", pfx: "movies:", tag: "MOVIE NIGHT" },
+  classic: { dir: "data/classic", name: "CLASSIC", pfx: "", tag: "THE DAILY CHASE" },
+  movies: { dir: "data/movies", name: "🎬 MOVIES", pfx: "movies:", tag: "MOVIE NIGHT" },
 };
 let PACK = store.get("pack", "classic"); if (!PACKS[PACK]) PACK = "classic";
 const K = (k, pack = PACK) => PACKS[pack].pfx + k; // per-pack storage key
 const LOADED = {};
-let DATA = null, BASE_IDS = [], VARIANT_IDS = [], TOTAL_ANSWERS = 0, cache = new Map();
-const NO_REMIX = /rhymes with|starting with|in its title|one-word/i;
+let DATA = null, BASE_IDS = [], TOTAL_ANSWERS = 0, cache = new Map();
 
 function buildPool(d) {
-  const pool = { DATA: d, BASE_IDS: d.prompts.map((_, i) => String(i)), VARIANT_IDS: [], TOTAL_ANSWERS: 0, cache: new Map() };
-  d.prompts.forEach((p, i) => {
-    pool.TOTAL_ANSWERS += p.answers.length;
-    if (NO_REMIX.test(p.q)) return;
-    const counts = {};
-    p.answers.forEach((a) => new Set(keysOf(a).map((k) => k[0])).forEach((c) => { if (/[a-z]/.test(c)) counts[c] = (counts[c] || 0) + 1; }));
-    for (const [c, n] of Object.entries(counts).sort()) if (n >= 8 && n <= p.answers.length * 0.5) pool.VARIANT_IDS.push(i + ":" + c);
-  });
-  return pool;
+  return { DATA: d, BASE_IDS: d.prompts.map((_, i) => String(i)), TOTAL_ANSWERS: d.total, cache: new Map() };
 }
 function usePack(name) {
   PACK = name; store.set("pack", name);
-  const apply = (pool) => ({ DATA, BASE_IDS, VARIANT_IDS, TOTAL_ANSWERS, cache } = pool);
+  const apply = (pool) => ({ DATA, BASE_IDS, TOTAL_ANSWERS, cache } = pool);
   if (LOADED[name]) { apply(LOADED[name]); return Promise.resolve(); }
-  return fetch(PACKS[name].file).then((r) => r.json()).then((d) => { LOADED[name] = buildPool(d); if (PACK === name) apply(LOADED[name]); });
+  return fetch(PACKS[name].dir + "/index.json").then((r) => r.json()).then((d) => { LOADED[name] = buildPool(d); if (PACK === name) apply(LOADED[name]); });
 }
-function getPrompt(id) {
-  if (cache.has(id)) return cache.get(id);
-  const [bi, letter] = id.split(":");
-  const base = DATA.prompts[+bi];
-  let p;
-  if (!letter) p = { id, q: base.q, answers: base.answers, base };
-  else {
-    const sub = base.answers.filter((a) => keysOf(a).some((k) => k[0] === letter));
-    const sum = sub.reduce((s, a) => s + 1 / a.n, 0);
-    const answers = sub.map((a) => {
-      const disp = norm(a.a)[0] === letter ? a.a : keysOf(a).find((k) => k[0] === letter);
-      return { a: disp, k: keysOf(a).filter((k) => k[0] === letter), n: Math.max(2, Math.round(sum * a.n)) };
-    }).sort((x, y) => x.n - y.n);
-    p = { id, q: `${base.q} starting with ${letter.toUpperCase()}`, answers, base, letter };
-  }
-  cache.set(id, p);
-  return p;
+function getPrompt(id) { return cache.get(id); }
+const validIds = (ids) => Array.isArray(ids) && ids.every((id) => /^\d+$/.test(id) && +id < BASE_IDS.length);
+function loadPrompts(ids) {
+  const dir = PACKS[PACK].dir, c = cache;
+  return Promise.all(ids.filter((id) => validIds([id]) && !c.has(id)).map((id) =>
+    fetch(`${dir}/${id}.json`).then((r) => r.json()).then((p) => c.set(id, { id, q: p.q, answers: p.answers }))));
 }
 
 /* ---------- seeded randomness ---------- */
@@ -137,28 +117,17 @@ const dayNum = (day) => Math.floor((new Date(day) - new Date(LAUNCH)) / 864e5) +
 
 function pickDaily() {
   const r = rng(hash("meowsand-" + PACKS[PACK].pfx + today()));
-  const base = shuffle(BASE_IDS, r).slice(0, 5);
-  const used = new Set(base);
-  const vars = shuffle(VARIANT_IDS, r).filter((v) => !used.has(v.split(":")[0])).slice(0, 2);
-  return shuffle(base.concat(vars), r);
+  return shuffle(BASE_IDS, r).slice(0, ROUNDS);
 }
 function pickUnlimited() {
   let deck = store.get(K("deck"), []);
   if (!Array.isArray(deck) || deck.some((i) => !BASE_IDS.includes(i))) deck = [];
-  let recent = store.get(K("recentVar"), []);
   const out = [];
   while (out.length < ROUNDS) {
-    if (Math.random() < 0.6 || !VARIANT_IDS.length) {
-      if (!deck.length) deck = shuffle(BASE_IDS);
-      const id = deck.shift();
-      if (!out.includes(id)) out.push(id);
-    } else {
-      let id, tries = 0;
-      do { id = VARIANT_IDS[Math.floor(Math.random() * VARIANT_IDS.length)]; } while ((recent.includes(id) || out.includes(id)) && ++tries < 50);
-      out.push(id); recent.push(id);
-    }
+    if (!deck.length) deck = shuffle(BASE_IDS).filter((i) => !out.includes(i));
+    out.push(deck.shift());
   }
-  store.set(K("deck"), deck); store.set(K("recentVar"), recent.slice(-300));
+  store.set(K("deck"), deck);
   return out;
 }
 
@@ -173,29 +142,33 @@ function persist() {
 
 function show(id) { document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === id)); }
 
-function start(mode) {
+async function start(mode) {
   if (mode === "daily") {
     const done = store.get(K("daily:" + today()));
-    if (done) { game = done; scene.jumpTo(0); scene.rollTo(game.total, 0); return showEnd(); }
+    if (done) { game = done; await loadPrompts(game.ids || []); scene.jumpTo(0); scene.rollTo(game.total, 0); return showEnd(); }
     const saved = store.get(K("save:daily:" + today()));
-    if (saved) return resume(saved);
+    if (saved && validIds(saved.ids)) return resume(saved);
     game = { pack: PACK, mode, day: today(), ids: pickDaily(), round: 0, results: [], total: 0, startM: 0, remaining: SECONDS * 1000 };
   } else {
     const journey = store.get(K("journey"), 0);
     game = { pack: PACK, mode, day: today(), ids: pickUnlimited(), round: 0, results: [], total: 0, startM: journey, remaining: SECONDS * 1000 };
   }
+  await loadPrompts(game.ids);
   scene.jumpTo(game.startM);
   enterPlay();
   nextRound();
 }
-function resume(saved) {
+async function resume(saved) {
+  if (!validIds(saved.ids)) { store.del(saveKey(saved)); return start(saved.mode); } // from an older version
   game = saved;
+  await loadPrompts(game.ids);
   scene.jumpTo(game.startM); scene.rollTo(game.startM + game.total, 0);
   enterPlay();
   if (game.results.length > game.round) { game.round++; game.remaining = SECONDS * 1000; }
   nextRound(Math.max(3000, game.remaining || 0));
 }
 function enterPlay() {
+  scene.setTheme(game.pack || "classic");
   $("mode").textContent = (game.pack === "movies" ? "🎬 " : "") + (game.mode === "daily" ? `DAILY #${dayNum(game.day)}` : "UNLIMITED");
   $("dist").textContent = fmt(game.total);
   paused = false;
@@ -206,7 +179,7 @@ function nextRound(ms = SECONDS * 1000) {
   if (game.round >= ROUNDS) return finish();
   const p = getPrompt(game.ids[game.round]);
   $("round").textContent = `${game.round + 1} / ${ROUNDS}`;
-  $("prompt").innerHTML = p.letter ? esc(p.base.q) + ` <span class="letter">starting with ${p.letter.toUpperCase()}</span>` : esc(p.q);
+  $("prompt").textContent = p.q;
   $("answer").value = ""; $("answer").disabled = false;
   $("feedback").textContent = "";
   $("result").classList.add("hidden");
@@ -236,10 +209,7 @@ function submit(e) {
   const p = getPrompt(game.ids[game.round]);
   const hit = findAnswer(p, raw);
   if (!hit) {
-    const wrongLetter = p.letter && findAnswer(p.base, raw);
-    $("feedback").textContent = wrongLetter
-      ? `“${raw.trim()}” doesn't start with ${p.letter.toUpperCase()}!`
-      : `“${raw.trim()}” isn't on our list. Try another!`;
+    $("feedback").textContent = `“${raw.trim()}” isn't on our list. Try another!`;
     const c = $("answer"); c.classList.remove("shake"); void c.offsetWidth; c.classList.add("shake"); c.select();
     return;
   }
@@ -319,6 +289,7 @@ function showEnd() {
   });
   $("btnAgain").textContent = game.mode === "daily" ? "∞ PLAY UNLIMITED" : "∞ NEXT CHASE";
   $("shareMsg").textContent = "";
+  updateSubmit();
   show("end");
 }
 
@@ -337,6 +308,7 @@ async function share() {
 }
 
 function renderTitle() {
+  scene.setTheme(PACK);
   document.querySelectorAll(".packtab").forEach((b) => b.classList.toggle("on", b.dataset.pack === PACK));
   $("tagline").textContent = PACKS[PACK].tag;
   const st = store.get(K("stats"), null), ub = store.get(K("unlimitedBest"), 0), jr = store.get(K("journey"), 0);
@@ -344,7 +316,7 @@ function renderTitle() {
   if (st) parts.push(`streak ${st.streak} · daily best ${fmt(st.best)} m`);
   if (ub) parts.push(`unlimited best ${fmt(ub)} m · journey ${fmt(jr)} m`);
   $("stats").textContent = parts.join("  ·  ");
-  $("count").textContent = DATA ? `${fmt(BASE_IDS.length + VARIANT_IDS.length)} prompts · ${fmt(TOTAL_ANSWERS)} answers` : "loading…";
+  $("count").textContent = DATA ? `${fmt(BASE_IDS.length)} prompts · ${fmt(TOTAL_ANSWERS)} answers` : "loading…";
 
   const dDone = store.get(K("daily:" + today())), dSave = store.get(K("save:daily:" + today()));
   $("btnDaily").innerHTML = dDone ? "✓ DAILY DONE · SEE RESULTS" : dSave ? `▶ RESUME DAILY <small>${dSave.results.length}/7 · ${fmt(dSave.total)}m</small>` : "▶ DAILY CHASE ◀";
@@ -373,6 +345,33 @@ function banner(name) {
   clearTimeout(bannerTO); bannerTO = setTimeout(() => b.classList.remove("show"), 2600);
 }
 
+/* ======================= CAT LOOKS ======================= */
+const COATS = {
+  ginger: { name: "Ginger", o: "#f29b38", d: "#c4661c", w: "#fff4e0" },
+  black: { name: "Black", o: "#2a2a33", d: "#1d1d25", w: "#2a2a33", k: "#ffd166" },
+  white: { name: "White", o: "#f5f2ea", d: "#e2ddd0", w: "#ffffff", k: "#4fb3ff" },
+  grey: { name: "Grey", o: "#8b95a7", d: "#6a7388", w: "#cfd5df" },
+  tuxedo: { name: "Tuxedo", o: "#26262e", d: "#26262e", w: "#ffffff", k: "#9be15d" },
+  calico: { name: "Calico", o: "#fbf6ee", d: "#f29b38", w: "#ffffff", patch: "#2a2a33" },
+  tortie: { name: "Tortie", o: "#3a2a22", d: "#c4661c", w: "#3a2a22", patch: "#d9822b", k: "#ffd166" },
+  brown: { name: "Brown tabby", o: "#9b7653", d: "#5e4430", w: "#e8dccb" },
+  silver: { name: "Silver tabby", o: "#c9ccd3", d: "#5b6170", w: "#eef0f4" },
+  cream: { name: "Cream", o: "#f1d7a6", d: "#d9b47a", w: "#fff6e6" },
+  chocolate: { name: "Chocolate", o: "#6b4430", d: "#4a2e20", w: "#8a6048" },
+  lilac: { name: "Lilac", o: "#bfb0bd", d: "#9c8d9a", w: "#e6dde4" },
+  galaxy: { name: "Galaxy ✨", o: "#4b3fa8", d: "#ff5c8a", w: "#5ee6f0", k: "#ffd166" },
+};
+const BREEDS = {
+  shorthair: { name: "Shorthair" },
+  mainecoon: { name: "Maine Coon", tufts: 1, fluffyTail: 1, fluff: 1 },
+  persian: { name: "Persian", fluff: 1, folded: 1, fluffyTail: 1 },
+  scottishfold: { name: "Scottish Fold", folded: 1 },
+  siamese: { name: "Siamese", bigEars: 1, points: 1 },
+  bengal: { name: "Bengal", spots: 1 },
+  sphynx: { name: "Sphynx", bigEars: 1, skin: { o: "#e9b9a9", d: "#d79e8e", w: "#f4d3c8" } },
+  munchkin: { name: "Munchkin", shortLegs: 1 },
+};
+
 /* ======================= SCENE ======================= */
 const scene = (() => {
   const cv = $("scene"), ctx = cv.getContext("2d");
@@ -383,7 +382,7 @@ const scene = (() => {
   const parts = [];
 
   /* biomes: every 1500 m the world loops */
-  const B = [
+  const B_CLASSIC = [
     { at: 0, name: "MEADOW MILE", sky: ["#8fcfe8", "#d9f0f2"], far: "#7fb7a4", near: "#5f9e78", g1: "#4f8a3c", g2: "#5a9844", top: "#7cc35a", dirt: "#3d6b2f", line: "#33592a", amp: 1, stars: 0, orb: "sun", deco: "meadow" },
     { at: 150, name: "SANDY SHORES", sky: ["#6cc4f0", "#fde8c8"], far: "#45b3d6", near: "#2a8fb8", g1: "#e9cf8f", g2: "#f0d99c", top: "#fff1c4", dirt: "#d9b878", line: "#c9a463", amp: 0.08, stars: 0, orb: "sun", deco: "beach" },
     { at: 300, name: "AUTUMN WOODS", sky: ["#f2a873", "#fbe3c4"], far: "#b5653a", near: "#8c4a2c", g1: "#8a6a2f", g2: "#967538", top: "#e0952f", dirt: "#5e4423", line: "#4f381c", amp: 1.2, stars: 0, orb: "sun", deco: "autumn", fx: "leaves" },
@@ -394,6 +393,20 @@ const scene = (() => {
     { at: 1100, name: "CANDY CANYON", sky: ["#ffb8dc", "#fff0f7"], far: "#ff9ccf", near: "#f77bbd", g1: "#ffd1ea", g2: "#ffdff0", top: "#ffffff", dirt: "#f7a8d2", line: "#ee8fc2", amp: 1.4, stars: 0, orb: "sun", deco: "candy", fx: "sparkle" },
     { at: 1300, name: "THE MOON", sky: ["#000008", "#0b0b24"], far: "#3a3a4e", near: "#2c2c3c", g1: "#8d8d99", g2: "#9a9aa6", top: "#c4c4cf", dirt: "#6e6e7a", line: "#5d5d69", amp: 0.5, stars: 1, orb: "earth", deco: "moon" },
   ];
+  // the Movies pack runs through Hollywood instead
+  const B_MOVIES = [
+    { at: 0, name: "MEOWLYWOOD HILLS", sky: ["#f7a26b", "#ffe3b3"], far: "#c98a5e", near: "#a8704a", g1: "#c9a66b", g2: "#d4b47a", top: "#e8cf95", dirt: "#9c7a4a", line: "#86683d", amp: 1.3, stars: 0, orb: "sun", deco: "hwHills", sign: 1 },
+    { at: 150, name: "THE RED CARPET", sky: ["#1a0f2e", "#4a2350"], far: "#2a1838", near: "#22122e", g1: "#b3122e", g2: "#c8173a", top: "#ffd166", dirt: "#3a0a14", line: "#ffd166", amp: 0, stars: 0.5, orb: "none", deco: "carpet", fx: "flash", beams: 1, facade: 1 },
+    { at: 300, name: "STUDIO LOT", sky: ["#7fc4ea", "#e6f3f8"], far: "#d9cdb3", near: "#c4b597", g1: "#8f8f8f", g2: "#9a9a9a", top: "#b5b5b5", dirt: "#6e6e6e", line: "#ffd166", amp: 0, stars: 0, orb: "sun", deco: "studio", stages: 1 },
+    { at: 450, name: "WALK OF FAME", sky: ["#ff9a76", "#ffd9a8"], far: "#7a5a8a", near: "#5c4470", g1: "#c9c3c0", g2: "#d3cdca", top: "#e6e1de", dirt: "#a9a3a0", line: "#ff7aa2", amp: 0.2, stars: 0, orb: "sun", deco: "walk", walkStars: 1 },
+    { at: 600, name: "THE DRIVE-IN", sky: ["#0b1033", "#2c2a5a"], far: "#1d2347", near: "#151a38", g1: "#2b2b33", g2: "#303039", top: "#4a4a55", dirt: "#1c1c22", line: "#ffd166", amp: 0.3, stars: 1, orb: "moon", deco: "drivein", screen: 1 },
+    { at: 750, name: "WILD WEST SET", sky: ["#f6a64e", "#ffe4a8"], far: "#d08a4c", near: "#b8743c", g1: "#d9a865", g2: "#e2b574", top: "#efc98e", dirt: "#b98a4e", line: "#a57a43", amp: 0.6, stars: 0, orb: "sun", deco: "western" },
+    { at: 900, name: "SCI-FI SOUNDSTAGE", sky: ["#05051a", "#1b1240"], far: "#2a2050", near: "#1f1840", g1: "#2e2e48", g2: "#35355a", top: "#5ee6f0", dirt: "#1a1a2e", line: "#5ee6f0", amp: 0.4, stars: 1, orb: "planet", deco: "scifi", grid: 0.6 },
+    { at: 1100, name: "MOVIE PALACE", sky: ["#2a0d1e", "#5a1838"], far: "#3a1228", near: "#2c0d1e", g1: "#5a1a2a", g2: "#661f31", top: "#ffd166", dirt: "#2a0a14", line: "#ffd166", amp: 0, stars: 0.4, orb: "none", deco: "palace", fx: "popcorn", marquee: 1 },
+    { at: 1300, name: "PREMIERE NIGHT", sky: ["#05081c", "#1e2a5a"], far: "#141c3e", near: "#0f1530", g1: "#1a1a26", g2: "#20202e", top: "#ffd166", dirt: "#101018", line: "#ffd166", amp: 0, stars: 1, orb: "none", deco: "premiere", beams: 1, fx: "flash" },
+  ];
+  const THEMES = { classic: B_CLASSIC, movies: B_MOVIES };
+  let B = B_CLASSIC, theme = "classic";
   const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const mix = (a, b, k) => { const x = hex(a), y = hex(b); return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * k)).join(",")})`; };
   const biomeIdx = (m) => { const c = ((m % CYCLE) + CYCLE) % CYCLE; let i = 0; while (i + 1 < B.length && c >= B[i + 1].at) i++; return i; };
@@ -409,14 +422,53 @@ const scene = (() => {
 
   /* sprites */
   const PAL = { o: "#f29b38", d: "#c4661c", w: "#fff4e0", k: "#1b2235", p: "#ff7aa2" };
+  let CAT = null; // built below by buildCat()
   const BODY = ["o..............o..o.", "o.............oooooo", ".o............okooko", ".o............ooowpo", "..o.ddoddoddooowwwo.", "..ooooooooooooowww..", "...ooodoodoodoooo...", "...oooooooooooooo..."];
   const LEGS = [["..oo..........oo....", ".oo............oo..."], ["....oo......oo......", "....oo......oo......"]];
   const SIT = ["...............o..o.", "..............oooooo", "..............okooko", "..............ooowpo", "............oooowwwo", "..o.......ooodoowww.", ".o.......oooodooww..", ".o......ooooooooo...", "..oo....ooo.oo.oo...", "....ooooooo.oo.oo..."];
-  const sprite = (rows, x, y) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const c = PAL[r[i]]; if (c) { ctx.fillStyle = c; ctx.fillRect(x + i, y + j, 1, 1); } } });
+  const sprite = (rows, x, y) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const c = catColour(CAT, r[i], i, j); if (c) { ctx.fillStyle = c; ctx.fillRect(x + i, y + j, 1, 1); } } });
+  function catColour(c, ch, i, j) {
+    const col = c.pal[ch];
+    if (!col) return null;
+    if (c.patch && ch === "o" && ((i >> 2) + (j >> 1)) % 3 === 0) return c.patch; // calico / tortie patches
+    return col;
+  }
+  const addRow = (rows, cols, ch) => [cols.reduce((r, c) => r.slice(0, c) + ch + r.slice(c + 1), ".".repeat(rows[0].length))].concat(rows);
+  function buildCat(cfg) {
+    cfg = cfg || {};
+    const coat = Object.assign({}, PAL, COATS[cfg.coat] || COATS.ginger);
+    const br = BREEDS[cfg.breed] || BREEDS.shorthair;
+    if (br.skin) Object.assign(coat, br.skin);
+    let body = BODY.slice(), sit = SIT.slice(), legs = LEGS.map((f) => f.slice()), top = 0;
+    const map = (rows, fn) => rows.map((r, j) => [...r].map((ch, i) => fn(ch, i, j, rows)).join(""));
+    if (br.folded) { body = map(body, (ch, i, j) => (j === 0 && i > 10 ? "." : ch)); sit = map(sit, (ch, i, j) => (j === 0 ? "." : ch)); }
+    if (br.points) {
+      body = map(body, (ch, i, j) => (ch === "o" && (j === 0 || i < 3 || (j === 3 && i > 14)) ? "d" : ch));
+      sit = map(sit, (ch, i, j) => (ch === "o" && (j === 0 || (i < 3 && j > 4) || (j === 3 && i > 14) || j >= 8) ? "d" : ch));
+      legs = legs.map((f) => f.map((r) => r.replace(/o/g, "d")));
+    }
+    if (br.spots) {
+      const sp = (ch, i, j) => (ch === "d" ? "o" : ch === "o" && j >= 4 && i > 2 && i < 15 && (i * 3 + j * 2) % 5 === 0 ? "d" : ch);
+      body = map(body, sp); sit = map(sit, (ch, i, j) => (j >= 5 && i < 12 ? sp(ch, i, j) : ch === "d" ? "o" : ch));
+    }
+    if (br.fluff) {
+      const grow = (rows, from) => map(rows, (ch, i, j, rs) => (ch === "." && j >= from && j < rs.length - 1 && (rs[j][i - 1] === "o" || rs[j][i + 1] === "o") ? "o" : ch));
+      body = grow(body, 4); sit = grow(sit, 4);
+    }
+    if (br.fluffyTail) {
+      body = map(body, (ch, i, j, rs) => (ch === "." && i < 4 && j < 5 && rs[j][i - 1] === "o" ? "o" : ch));
+      sit = map(sit, (ch, i, j, rs) => (ch === "." && i < 3 && j > 4 && j < 9 && rs[j][i + 1] === "o" ? "o" : ch));
+    }
+    if (br.tufts) { body = addRow(body, [15, 18], "d"); sit = addRow(sit, [15, 18], "d"); top = 1; }
+    if (br.bigEars) { body = addRow(body, [15, 18], br.points ? "d" : "o"); sit = addRow(sit, [15, 18], br.points ? "d" : "o"); top = 1; }
+    if (br.shortLegs) { legs = legs.map((f) => [f[1]]); sit = sit.filter((_, j) => j !== sit.length - 2); }
+    return { pal: coat, patch: (COATS[cfg.coat] || {}).patch && !br.skin ? COATS[cfg.coat].patch : null, BODY: body, SIT: sit, LEGS: legs, top };
+  }
   const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
   const disc = (cx, cy, r, c) => { ctx.fillStyle = c; for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r - y * y + r * 0.6)); ctx.fillRect(Math.round(cx - w), Math.round(cy + y), w * 2 + 1, 1); } };
   const rnd = (k, s = 0) => (hash("d" + k + ":" + s) % 1000) / 1000;
 
+  CAT = buildCat(store.get("cat", {}));
   function resize() {
     PX = innerWidth > 900 ? 4 : 3;
     W = Math.ceil(innerWidth / PX); H = Math.ceil(innerHeight / PX);
@@ -446,6 +498,7 @@ const scene = (() => {
     const orb = L.main.orb, ox = W * 0.78, oy = ground * 0.28;
     if (orb === "sun") { disc(ox, oy, 9, "#fff3b0"); disc(ox, oy, 7, "#ffe27a"); }
     if (orb === "moon") { disc(ox, oy, 8, "#f2efd8"); disc(ox + 3, oy - 2, 2, "#d8d3b8"); disc(ox - 3, oy + 3, 1, "#d8d3b8"); }
+    if (orb === "planet") { disc(ox, oy, 8, "#d9822b"); disc(ox - 2, oy - 2, 3, "#f2b36b"); for (let i = -14; i <= 14; i++) px(ox + i, oy + Math.round(i * 0.25), 1, 1, "#ffe0a3"); }
     if (orb === "earth") { disc(ox, oy, 9, "#2f7fd6"); disc(ox - 3, oy - 2, 3, "#4fb04a"); disc(ox + 4, oy + 3, 2, "#4fb04a"); px(ox - 6, oy - 7, 6, 1, "#ffffff"); }
     if (orb === "synth") {
       for (let y = -14; y <= 14; y++) {
@@ -463,6 +516,53 @@ const scene = (() => {
         px(x, y, w, 4, col); px(x + 4, y - 3, w - 10, 3, col);
       }
       ctx.globalAlpha = 1;
+    }
+  }
+  function drawBeams(L) {
+    if (!L.main.beams) return;
+    ctx.globalAlpha = 0.13;
+    for (let b = 0; b < 4; b++) {
+      const bx = ((b * 160 - camX * 0.3) % (W + 160) + W + 160) % (W + 160) - 80, ang = Math.sin(t * 0.7 + b * 1.7) * 0.6;
+      for (let y = 0; y < ground; y += 2) {
+        const d = ground - y, cx = bx + Math.sin(ang) * d, w = 2 + d * 0.12;
+        px(cx - w / 2, y, w, 2, "#fff6c2");
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  const BIG = { M: "1000111011101011000110001", E: "111100111100111", O: "111101101101111", W: "1000110001101011101110001", L: "100100100100111", Y: "101101010010010", D: "110101101101110",
+    N: "101111111111101", S: "111100111001111", H: "101101111101101", I: "111010010010111", G: "111100101101111", T: "111010010010010", A: "111101111101101", R: "110101110101101", C: "111100100100111", P: "111101111100100", V: "101101101101010" };
+  function bigText(str, x, y, sc, col, shadow) {
+    let cx = x;
+    for (const ch of str) {
+      const g = BIG[ch]; if (!g) { cx += 3 * sc; continue; }
+      const w = g.length / 5;
+      for (let i = 0; i < g.length; i++) if (g[i] === "1") {
+        if (shadow) px(cx + (i % w) * sc + 1, y + ((i / w) | 0) * sc + 1, sc, sc, shadow);
+        px(cx + (i % w) * sc, y + ((i / w) | 0) * sc, sc, sc, col);
+      }
+      cx += (w + 1) * sc;
+    }
+  }
+  function drawSets(L) { // big background pieces for the Hollywood biomes
+    const m = L.main;
+    const loop = (x0, par, w) => { const per = W + w + 20; return (((x0 - camX * par) % per) + per) % per - w; };
+    if (m.sign) { const sx = loop(W * 0.45, 0.12, 140); bigText("MEOWLYWOOD", sx, ground - 44, 3, "#ffffff", "#8a5a3a"); for (let i = 0; i < 10; i++) px(sx + i * 13 + 4, ground - 29, 1, 9, "#8a5a3a"); }
+    if (m.stages) for (let i = 0; i < 6; i++) {
+      const bx = ((i * 110 - camX * 0.35) % (W + 120) + W + 120) % (W + 120) - 60;
+      px(bx, ground - 36, 70, 36, "#e8dcc2"); px(bx - 2, ground - 40, 74, 5, "#cbbd9e"); px(bx + 25, ground - 18, 20, 18, "#8f7f63");
+      bigText("", 0, 0, 1, "#000");
+      text(String(i + 1), bx + 60, ground - 12, "#3a3f5a");
+    }
+    if (m.screen) { const sx = loop(W * 0.5, 0.12, 104); px(sx - 2, ground - 50, 104, 46, "#2a2a33"); px(sx, ground - 48, 100, 40, "#fdf7e6");
+      const f = Math.floor(t * 2) % 3; ctx.globalAlpha = 0.85; px(sx + 30 + f * 4, ground - 36, 30, 16, ["#ff5c8a", "#5ee6f0", "#ffd166"][f]); disc(sx + 45 + f * 4, ground - 40, 5, "#1b2235"); ctx.globalAlpha = 1;
+      px(sx + 48, ground - 8, 4, 8, "#2a2a33"); }
+    if (m.facade || m.marquee) for (let i = 0; i < 5; i++) {
+      const bx = ((i * 150 - camX * 0.3) % (W + 160) + W + 160) % (W + 160) - 80;
+      px(bx, ground - 44, 90, 44, m.marquee ? "#4a1426" : "#2a1838"); px(bx + 10, ground - 34, 70, 14, "#ffd166"); px(bx + 12, ground - 32, 66, 10, "#1b0f1f");
+      bigText(m.marquee ? "NOW SHOWING" : "PREMIERE", bx + 14, ground - 31, 1, "#ff5c8a");
+      for (let k = 0; k < 18; k++) if ((k + Math.floor(t * 6)) % 3) px(bx + 10 + k * 4, ground - 36, 1, 1, "#fff6c2");
+      px(bx + 36, ground - 16, 18, 16, "#1b0f1f");
     }
   }
   function drawHills(L) {
@@ -492,6 +592,8 @@ const scene = (() => {
     px(0, ground, W, 1, L.top);
     px(0, ground + 14, W, H - ground - 14, L.dirt);
     for (let x = -((camX * 1.6) % 24); x < W; x += 24) px(x, ground + 18 + ((x / 24) % 2) * 6, 6, 1, L.line);
+    if (L.main.walkStars) for (let x = -((camX % 30) + 30); x < W + 30; x += 30) { px(x, ground + 3, 22, 9, "#2a2a33"); bigStar(x + 11, ground + 7, "#ff9ac2", "#ffd166"); }
+    if (L.main.deco === "carpet" || L.main.deco === "premiere") { px(0, ground + 2, W, 1, "#ffd166"); px(0, ground + 13, W, 1, "#ffd166"); }
     if (L.grid > 0.05) { // synthwave floor
       ctx.globalAlpha = L.grid;
       for (let k = 1; k < 12; k++) px(0, ground + 1 + k * k * 0.9, W, 1, "#ff3fd8");
@@ -502,6 +604,9 @@ const scene = (() => {
       }
       ctx.globalAlpha = 1;
     }
+  }
+  function bigStar(cx, cy, fill, edge) {
+    px(cx - 1, cy - 3, 3, 1, edge); px(cx - 4, cy - 2, 9, 2, fill); px(cx - 2, cy, 5, 1, fill); px(cx - 3, cy + 1, 2, 2, fill); px(cx + 2, cy + 1, 2, 2, fill); px(cx, cy - 4, 1, 1, edge);
   }
   function drawSigns() {
     const first = Math.floor(camX / (25 * PPM)) * 25;
@@ -563,6 +668,46 @@ const scene = (() => {
       else if (r < 0.7) disc(x, g - 2, 3, "#7a7a86");
     },
   };
+  Object.assign(DECO, {
+    hwHills(x, g, r) { if (r < 0.5) DECO.beach(x, g, 0.1); else if (r < 0.75) disc(x, g - 3, 4, "#9a7a4a"); else { px(x, g - 12, 1, 12, "#5a4a3a"); px(x - 4, g - 13, 9, 2, "#ffd166"); } },
+    carpet(x, g, r) {
+      if (r < 0.6) { for (const dx of [0, 14]) { px(x + dx, g - 9, 2, 9, "#ffd166"); px(x + dx - 1, g - 10, 4, 2, "#ffd166"); } for (let i = 0; i < 13; i++) px(x + 2 + i, g - 8 + Math.round(Math.sin((i / 12) * Math.PI) * 3), 1, 1, "#7a0f24"); }
+      else { px(x, g - 12, 4, 7, "#1b1b22"); disc(x + 1, g - 14, 2, "#e9b9a9"); px(x + 3, g - 11, 3, 2, "#3a3a44"); if ((t * 3 + x) % 4 < 0.3) disc(x + 6, g - 11, 3, "#ffffff"); px(x, g - 5, 1, 5, "#1b1b22"); px(x + 3, g - 5, 1, 5, "#1b1b22"); }
+    },
+    studio(x, g, r) {
+      if (r < 0.3) { px(x, g - 7, 7, 1, "#7a0f24"); px(x, g - 11, 1, 5, "#7a0f24"); px(x + 6, g - 11, 1, 5, "#7a0f24"); px(x + 1, g - 10, 5, 3, "#1b1b22"); px(x, g - 6, 1, 6, "#5a3a20"); px(x + 6, g - 6, 1, 6, "#5a3a20"); }
+      else if (r < 0.6) { px(x - 4, g - 15, 9, 6, "#1b1b22"); disc(x - 4, g - 17, 3, "#2a2a33"); disc(x + 3, g - 17, 3, "#2a2a33"); px(x + 5, g - 13, 3, 2, "#5a5a66"); px(x, g - 9, 1, 9, "#5a5a66"); px(x - 4, g, 9, 1, "#5a5a66"); }
+      else if (r < 0.8) { px(x, g - 7, 9, 6, "#1b1b22"); for (let i = 0; i < 9; i += 2) px(x + i, g - 9, 1, 2, "#ffffff"); px(x, g - 9, 9, 1, "#1b1b22"); px(x + 1, g - 5, 7, 1, "#ffffff"); }
+      else { px(x, g - 16, 1, 16, "#5a5a66"); px(x - 3, g - 19, 7, 4, "#2a2a33"); ctx.globalAlpha = 0.2; disc(x + 6, g - 12, 6, "#fff6c2"); ctx.globalAlpha = 1; }
+    },
+    walk(x, g, r) { if (r < 0.45) DECO.beach(x, g, 0.1); else if (r < 0.7) { px(x, g - 18, 1, 18, "#2b2b3b"); px(x - 2, g - 19, 5, 2, "#2b2b3b"); disc(x, g - 16, 1, "#fff3b0"); } },
+    drivein(x, g, r) {
+      if (r < 0.55) { const col = ["#d93a68", "#5ee6f0", "#ffd166", "#7ee081"][Math.floor(r * 40) % 4]; px(x - 8, g - 6, 18, 4, col); px(x - 4, g - 9, 10, 3, col); px(x - 3, g - 8, 3, 2, "#9fd3ea"); px(x + 2, g - 8, 3, 2, "#9fd3ea"); disc(x - 4, g - 2, 2, "#1b1b22"); disc(x + 6, g - 2, 2, "#1b1b22"); }
+      else if (r < 0.75) { px(x, g - 8, 1, 8, "#5a5a66"); px(x - 1, g - 9, 3, 3, "#8a8a99"); }
+    },
+    western(x, g, r) {
+      if (r < 0.35) { px(x - 8, g - 20, 18, 20, "#9b6a3c"); px(x - 8, g - 20, 18, 2, "#6e4a28"); px(x - 6, g - 15, 5, 4, "#2a1a10"); px(x + 3, g - 15, 5, 4, "#2a1a10"); px(x - 2, g - 9, 6, 9, "#2a1a10"); px(x - 9, g - 10, 20, 1, "#6e4a28"); }
+      else if (r < 0.6) DECO.desert(x, g, 0.1);
+      else if (r < 0.8) { px(x - 3, g - 7, 7, 7, "#8a5a2c"); px(x - 3, g - 5, 7, 1, "#5a3a1a"); px(x - 3, g - 2, 7, 1, "#5a3a1a"); }
+      else { const tx = x + ((t * 25) % 80) - 40; disc(tx, g - 3, 3, "#b98a52"); px(tx - 1, g - 4, 1, 1, "#8a6a3a"); }
+    },
+    scifi(x, g, r) {
+      if (r < 0.35) { px(x, g - 8, 1, 8, "#5a5a66"); px(x - 7, g - 12, 15, 3, "#9aa3b5"); px(x - 3, g - 15, 7, 3, "#5ee6f0"); for (let i = -6; i <= 6; i += 3) px(x + i, g - 10, 1, 1, (t * 4 + i) % 2 < 1 ? "#ffd166" : "#ff5c8a"); }
+      else if (r < 0.6) { px(x - 3, g - 12, 7, 7, "#9aa3b5"); px(x - 2, g - 10, 2, 2, "#ff5c8a"); px(x + 1, g - 10, 2, 2, "#ff5c8a"); px(x - 2, g - 5, 2, 5, "#7a8294"); px(x + 1, g - 5, 2, 5, "#7a8294"); px(x, g - 14, 1, 2, "#5ee6f0"); }
+      else if (r < 0.8) { px(x, g - 14, 1, 14, "#5a5a66"); px(x + 10, g - 14, 1, 14, "#5a5a66"); if (Math.sin(t * 9) > -0.3) for (let y = g - 13; y < g; y += 3) px(x + 1, y, 9, 1, "#ff3fd8"); }
+    },
+    palace(x, g, r) {
+      if (r < 0.4) { px(x - 3, g - 9, 7, 9, "#ffffff"); for (let i = -3; i < 4; i += 2) px(x + i, g - 9, 1, 9, "#d93a3a"); disc(x, g - 11, 3, "#fff3b0"); disc(x - 2, g - 12, 1, "#ffe27a"); }
+      else if (r < 0.65) { disc(x, g - 7, 6, "#2a2a33"); for (let a = 0; a < 6; a++) disc(x + Math.round(Math.cos(a + t) * 3.5), g - 7 + Math.round(Math.sin(a + t) * 3.5), 1, "#9aa3b5"); disc(x, g - 7, 1, "#9aa3b5"); }
+      else if (r < 0.85) { px(x - 2, g - 10, 5, 10, "#d93a3a"); px(x - 2, g - 10, 5, 2, "#ffffff"); px(x, g - 13, 1, 3, "#ffffff"); }
+    },
+    premiere(x, g, r) {
+      if (r < 0.35) { px(x - 4, g - 6, 9, 6, "#2a2a33"); px(x - 1, g - 12, 3, 6, "#ffd166"); disc(x, g - 14, 2, "#ffd166"); px(x - 2, g - 17, 1, 2, "#ffd166"); px(x + 2, g - 17, 1, 2, "#ffd166"); }
+      else if (r < 0.6) DECO.carpet(x, g, 0.1);
+      else if (r < 0.8) { px(x - 14, g - 6, 30, 5, "#1b1b22"); px(x - 6, g - 9, 14, 3, "#1b1b22"); px(x - 5, g - 8, 5, 2, "#3a4a6a"); px(x + 2, g - 8, 5, 2, "#3a4a6a"); disc(x - 9, g - 1, 2, "#2a2a33"); disc(x + 11, g - 1, 2, "#2a2a33"); }
+      else { px(x - 3, g - 5, 7, 5, "#5a5a66"); px(x - 2, g - 8, 5, 3, "#9aa3b5"); }
+    },
+  });
   function drawDeco() {
     const step = 22, k0 = Math.floor((camX - 40) / step);
     for (let k = k0; k * step - camX < W + 40; k++) {
@@ -574,7 +719,9 @@ const scene = (() => {
   }
   function drawThread() {
     const sx = Math.max(0, -camX), ex = Math.min(W, yarnX - camX);
-    if (ex > sx) px(sx, ground - 1, ex - sx, 1, "#ff5c8a");
+    if (ex <= sx) return;
+    if (theme === "movies") { px(sx, ground - 3, ex - sx, 3, "#1b1b22"); for (let x = sx - ((sx + camX) % 4); x < ex; x += 4) { px(x, ground - 3, 1, 1, "#e8e2d0"); px(x, ground - 1, 1, 1, "#e8e2d0"); } }
+    else px(sx, ground - 1, ex - sx, 1, "#ff5c8a");
   }
   function drawYarn() {
     const cx = Math.round(yarnX - camX), cy = ground - 6, r = 6;
@@ -586,8 +733,9 @@ const scene = (() => {
   }
   function drawCat() {
     const x = Math.round(catX - camX), y = ground - 10 - Math.round(Math.sin(Math.min(1, jump) * Math.PI) * 9);
-    if (running || jump > 0) { const bob = catFrame ? 1 : 0; sprite(BODY, x - 20, y + bob); sprite(LEGS[jump > 0 ? 0 : catFrame], x - 20, y + 8 + bob); }
-    else { const tail = Math.sin(t * 4) > 0; sprite(tail ? SIT.map((r, j) => (j === 6 || j === 7 ? "." + r.slice(1).replace(/^\.o/, "o.") : r)) : SIT, x - 20, y); }
+    const c = CAT, tp = c.top, legH = c.LEGS[0].length;
+    if (running || jump > 0) { const bob = catFrame ? 1 : 0; sprite(c.BODY, x - 20, y + bob - tp + (2 - legH)); sprite(c.LEGS[jump > 0 ? 0 : catFrame], x - 20, y + 8 + bob + (2 - legH)); }
+    else { const wag = Math.sin(t * 4) > 0; sprite(wag ? c.SIT.map((r, j) => (j === 6 + tp || j === 7 + tp ? "." + r.slice(1).replace(/^\.o/, "o.") : r)) : c.SIT, x - 20, y - tp); }
   }
 
   /* particles */
@@ -602,6 +750,8 @@ const scene = (() => {
     if (fx === "snow" && Math.random() < 0.6) parts.push({ x: Math.random() * W, y: -2, vx: -6, vy: 14 + Math.random() * 10, g: 0, life: 6, c: "#ffffff", s: 1, wob: 1 });
     if (fx === "leaves" && Math.random() < 0.12) parts.push({ x: Math.random() * W, y: -2, vx: -10, vy: 12, g: 0, life: 6, c: ["#e8a02a", "#d9541e", "#c43d1a"][Math.floor(Math.random() * 3)], s: 2, wob: 2 });
     if (fx === "fireflies" && Math.random() < 0.08) parts.push({ x: Math.random() * W, y: ground - Math.random() * 30, vx: (Math.random() - 0.5) * 6, vy: -2, g: 0, life: 3, c: "#e8ff7a", s: 1, glow: 1 });
+    if (fx === "flash" && Math.random() < 0.06) { const fx2 = Math.random() * W, fy = ground - 8 - Math.random() * 10; for (let i = 0; i < 6; i++) parts.push({ x: fx2, y: fy, vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30, g: 0, life: 0.18, c: "#ffffff", s: 2 }); }
+    if (fx === "popcorn" && Math.random() < 0.25) parts.push({ x: Math.random() * W, y: -2, vx: (Math.random() - 0.5) * 8, vy: 20 + Math.random() * 15, g: 10, life: 6, c: Math.random() < 0.7 ? "#fff6dc" : "#ffd166", s: 2, wob: 0.5 });
     if (fx === "sparkle" && Math.random() < 0.15) parts.push({ x: Math.random() * W, y: Math.random() * ground, vx: 0, vy: 0, g: 0, life: 0.6, c: "#ffffff", s: 1 });
   }
   function drawParts(dt) {
@@ -631,14 +781,15 @@ const scene = (() => {
     running = Math.abs(dx) > 1.5;
     if (running) { catX += Math.sign(dx) * Math.min(Math.abs(dx), Math.max(40, Math.abs(dx) * 2.2) * dt); catFrame = Math.floor(t * 12) % 2; if (Math.abs(yarnX - 14 - catX) <= 1.5 && rollT >= 1 && rollDur > 0.3) jump = 0.001; }
     if (jump > 0) { jump += dt * 2.2; if (jump >= 1) jump = 0; }
-    camX += (Math.max(0, yarnX - W * 0.6) - camX) * Math.min(1, dt * 3);
+    const onTitle = $("title").classList.contains("active");
+    camX += ((onTitle ? yarnX - W * 0.2 : Math.max(0, yarnX - W * 0.6)) - camX) * Math.min(1, dt * 3);
 
     const L = look((camX + W * 0.5) / PPM);
     const bi = biomeIdx(yarnX / PPM);
     if (bi !== lastBiome) { if (lastBiome !== -1 && rollT < 1) banner(B[bi].name); lastBiome = bi; }
     ctx.save();
     if (shake > 0) { shake -= dt; ctx.translate(Math.round((Math.random() - 0.5) * 4), Math.round((Math.random() - 0.5) * 3)); }
-    drawSky(L); drawHills(L); drawGround(L); weather(L); drawDeco(); drawSigns(); drawThread(); drawYarn(); drawCat(); drawParts(dt);
+    drawSky(L); drawBeams(L); drawHills(L); drawSets(L); drawGround(L); weather(L); drawDeco(); drawSigns(); drawThread(); drawYarn(); drawCat(); drawParts(dt);
     ctx.restore();
     requestAnimationFrame(frame);
   }
@@ -653,9 +804,127 @@ const scene = (() => {
       pendingFloat = gained ? [`+${gained}m`, lvl >= 0 ? TIERS[lvl].cls : ""] : null;
     },
     yarnScreen() { return { x: (yarnX - camX) * PX, y: (ground - 8) * PX }; },
+    catScreen() { return { x: (catX - camX - 20) * PX, y: (ground - 10 - (CAT.top || 0)) * PX, w: 20 * PX, h: (10 + (CAT.top || 0)) * PX }; },
+    poke() { if (!running && jump === 0) jump = 0.001; },
+    setTheme(name) { if (THEMES[name] && B !== THEMES[name]) { B = THEMES[name]; theme = name; lastBiome = biomeIdx(yarnX / PPM); } },
+    setCat(cfg) { CAT = buildCat(cfg); },
+    preview(canvas, cfg) {
+      const c = buildCat(cfg), g = canvas.getContext("2d"), sc = Math.floor(canvas.width / 24);
+      g.clearRect(0, 0, canvas.width, canvas.height);
+      c.SIT.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const col = catColour(c, r[i], i, j); if (col) { g.fillStyle = col; g.fillRect(i * sc + sc * 2, j * sc + (canvas.height - c.SIT.length * sc) / 2, sc, sc); } } });
+    },
   };
-if (location.hash === "#debug") window.meow = { scene, getPrompt, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
 })();
+
+/* ---------- the title-screen cat: pet it, dress it ---------- */
+const MEOWS = ["meow!", "mrrp?", "MEOW", "purrr…", "mew", "nya~", "feed me", "mrow!", "*slow blink*", "pspsps?", "meow meow", "🐟?", "chase time?", "🧶!!"];
+function meowSound() {
+  try {
+    const ac = meowSound.ac || (meowSound.ac = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), t0 = ac.currentTime, p = 0.85 + Math.random() * 0.4;
+    o.type = "sawtooth"; f.type = "bandpass"; f.Q.value = 3;
+    o.frequency.setValueAtTime(480 * p, t0); o.frequency.linearRampToValueAtTime(800 * p, t0 + 0.14); o.frequency.linearRampToValueAtTime(430 * p, t0 + 0.45);
+    f.frequency.setValueAtTime(1000, t0); f.frequency.linearRampToValueAtTime(2300, t0 + 0.14); f.frequency.linearRampToValueAtTime(800, t0 + 0.45);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    o.connect(f); f.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + 0.55);
+  } catch {}
+}
+let bubbleTO;
+function petCat() {
+  const b = $("bubble"), c = scene.catScreen();
+  b.textContent = MEOWS[Math.floor(Math.random() * MEOWS.length)];
+  b.style.left = c.x + c.w * 0.6 + "px"; b.style.top = c.y - 6 + "px";
+  b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+  clearTimeout(bubbleTO); bubbleTO = setTimeout(() => b.classList.remove("show"), 1600);
+  scene.poke(); meowSound();
+}
+(function trackCat() {
+  const hit = $("catHit"), onTitle = $("title").classList.contains("active") && $("catPanel").classList.contains("hidden") && $("boardPanel").classList.contains("hidden");
+  hit.style.display = onTitle ? "block" : "none";
+  if (onTitle) { const c = scene.catScreen(); Object.assign(hit.style, { left: c.x + "px", top: c.y + "px", width: c.w + "px", height: c.h + "px" }); }
+  requestAnimationFrame(trackCat);
+})();
+$("catHit").addEventListener("click", petCat);
+
+function catPanel() {
+  const cfg = Object.assign({ breed: "shorthair", coat: "ginger" }, store.get("cat", {}));
+  const draw = () => { scene.preview($("catPreview"), cfg); scene.setCat(cfg); store.set("cat", cfg); };
+  const chips = (el, items, key, swatch) => {
+    el.innerHTML = "";
+    for (const [id, it] of Object.entries(items)) {
+      const b = document.createElement("button");
+      b.innerHTML = (swatch ? `<i style="background:linear-gradient(135deg,${it.o} 55%,${it.d} 55%)"></i>` : "") + esc(it.name);
+      b.classList.toggle("on", cfg[key] === id);
+      b.onclick = () => { cfg[key] = id; el.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
+      el.appendChild(b);
+    }
+  };
+  chips($("breedList"), BREEDS, "breed"); chips($("coatList"), COATS, "coat", true);
+  draw();
+  $("catPanel").classList.remove("hidden");
+}
+$("btnCat").addEventListener("click", catPanel);
+$("btnCatDone").addEventListener("click", () => { $("catPanel").classList.add("hidden"); petCat(); });
+
+/* ---------- daily leaderboard (optional, needs config.js) ---------- */
+const CFG = window.MEOWSAND_CONFIG || {};
+const LB_ON = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+const MAX_SCORE = 1600; // 7 rounds can't physically exceed this
+function lb(path, opts = {}) {
+  return fetch(CFG.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + path, Object.assign({}, opts, {
+    headers: Object.assign({ apikey: CFG.supabaseAnonKey, Authorization: "Bearer " + CFG.supabaseAnonKey, "Content-Type": "application/json" }, opts.headers || {}),
+  }));
+}
+const cleanName = (s) => s.toUpperCase().replace(/[^A-Z0-9 _-]/g, "").trim().slice(0, 10);
+async function showBoard(pack = PACK) {
+  $("boardPanel").classList.remove("hidden");
+  document.querySelectorAll(".boardtab").forEach((b) => b.classList.toggle("on", b.dataset.pack === pack));
+  $("boardTitle").textContent = `TOP CHASERS · ${today()}`;
+  const list = $("boardList"); list.innerHTML = "<li>loading…</li>"; $("boardMsg").textContent = "";
+  try {
+    const r = await lb(`scores?select=name,score&day=eq.${today()}&pack=eq.${pack}&order=score.desc,created_at.asc&limit=25`);
+    if (!r.ok) throw new Error(r.status);
+    const rows = await r.json(), mine = store.get(K("submitted:" + today(), pack));
+    list.innerHTML = rows.length ? "" : "<li>no scores yet today. Be the first!</li>";
+    rows.forEach((row, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<b>${i + 1}.</b><span>${esc(row.name)}</span><span>${fmt(row.score)} m</span>`;
+      if (mine && mine.name === row.name && mine.score === row.score) li.className = "me";
+      list.appendChild(li);
+    });
+  } catch (e) { list.innerHTML = ""; $("boardMsg").textContent = "couldn't reach the leaderboard right now."; }
+}
+async function submitScore(e) {
+  e.preventDefault();
+  const name = cleanName($("lbName").value);
+  if (!name) { $("submitMsg").textContent = "type a name first (letters & numbers, 10 max)"; return; }
+  if (!game || game.mode !== "daily" || game.day !== today()) return;
+  const key = K("submitted:" + game.day, game.pack || "classic");
+  if (store.get(key)) return;
+  $("submitMsg").textContent = "submitting…";
+  try {
+    const r = await lb("scores", { method: "POST", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ day: game.day, pack: game.pack || "classic", name, score: Math.min(MAX_SCORE, Math.round(game.total)) }) });
+    if (!r.ok) throw new Error(r.status);
+    store.set(key, { name, score: Math.round(game.total) });
+    store.set("lbName", name);
+    $("submitForm").classList.add("hidden");
+    $("submitMsg").textContent = "submitted! 🏆";
+    showBoard(game.pack || "classic");
+  } catch (err) { $("submitMsg").textContent = "couldn't submit. Try again in a moment."; }
+}
+function updateSubmit() {
+  const can = LB_ON && game && game.mode === "daily" && game.day === today() && !store.get(K("submitted:" + game.day, game.pack || "classic"));
+  $("submitForm").classList.toggle("hidden", !can);
+  $("submitMsg").textContent = "";
+  if (can) $("lbName").value = store.get("lbName", "");
+}
+$("btnBoard").classList.toggle("hidden", !LB_ON);
+$("btnBoard").addEventListener("click", () => showBoard(PACK));
+$("btnBoardClose").addEventListener("click", () => $("boardPanel").classList.add("hidden"));
+document.querySelectorAll(".boardtab").forEach((b) => b.addEventListener("click", () => showBoard(b.dataset.pack)));
+$("submitForm").addEventListener("submit", submitScore);
+$("lbName").addEventListener("input", (e) => { const v = cleanName(e.target.value); if (v !== e.target.value.toUpperCase()) e.target.value = v; });
 
 /* ---------- wiring ---------- */
 $("answerForm").addEventListener("submit", submit);
@@ -676,6 +945,8 @@ $("btnHome").addEventListener("click", () => { renderTitle(); show("title"); });
 $("btnShare").addEventListener("click", share);
 document.addEventListener("keydown", (e) => {
   const playing = $("play").classList.contains("active");
+  if (e.key === "Escape" && !$("catPanel").classList.contains("hidden")) { $("catPanel").classList.add("hidden"); return; }
+  if (e.key === "Escape" && !$("boardPanel").classList.contains("hidden")) { $("boardPanel").classList.add("hidden"); return; }
   if (e.key === "Escape" && playing) { e.preventDefault(); quitToTitle(); }
   if (e.key === "Enter" && playing && !$("result").classList.contains("hidden") && document.activeElement !== $("btnNext")) { e.preventDefault(); $("btnNext").click(); }
 });
@@ -690,5 +961,5 @@ usePack(PACK).then(() => {
   scene.jumpTo(0);
   renderTitle();
 }).catch((e) => { console.error(e); $("loading").textContent = "couldn't load prompts. If you opened index.html directly, run a local server (see README)."; });
-if (location.hash === "#debug") window.meow = { scene, getPrompt, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
+if (location.hash === "#debug") window.meow = { scene, getPrompt, loadPrompts, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
 })();

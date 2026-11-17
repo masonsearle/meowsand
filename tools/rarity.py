@@ -71,3 +71,21 @@ def score(head, tail=(), tail_mass=0.12, head_wordfreq=True, promote=0):
         if e["k"] == [norm(e["a"])]:
             del e["k"]
     return out
+
+
+def write_pack(folder, pack, prompts):
+    """One small file per prompt + an index, so the game only downloads the prompts it plays."""
+    import json, os, glob
+    os.makedirs(folder, exist_ok=True)
+    for old in glob.glob(os.path.join(folder, "*.json")):
+        os.remove(old)
+    index = {"version": 3, "pack": pack, "total": sum(len(p["answers"]) for p in prompts),
+             "prompts": [{"q": p["q"], "n": len(p["answers"])} for p in prompts]}
+    for i, p in enumerate(prompts):
+        with open(os.path.join(folder, f"{i}.json"), "w", encoding="utf8") as f:
+            json.dump(p, f, separators=(",", ":"), ensure_ascii=False)
+    with open(os.path.join(folder, "index.json"), "w", encoding="utf8") as f:
+        json.dump(index, f, separators=(",", ":"), ensure_ascii=False)
+    size = sum(os.path.getsize(x) for x in glob.glob(os.path.join(folder, "*.json")))
+    print(f"{pack}: {len(prompts)} prompts, {index['total']} answers -> {folder}/ ({size // 1024} KB total, "
+          f"biggest prompt {max(os.path.getsize(x) for x in glob.glob(os.path.join(folder, '*.json'))) // 1024} KB)")

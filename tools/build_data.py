@@ -17,6 +17,7 @@ from categories import HANDWRITTEN, CORPORA
 from categories_more import MORE
 from categories_extend import EXTEND, NEW
 from includes import INCLUDES
+import datasets as D
 try:
     from categories_extend2 import EXTEND2
 except ImportError:
@@ -116,10 +117,62 @@ BOOST = {
         selena gomez, charli xcx, tate mcrae, benson boone, noah kahan, zach bryan, hozier, gracie abrams, karol g, peso pluma, tyla""".replace("\n", " ").split(", ")),
 }
 
-CUSTOM = {
-    "Name a singer or band": (billboard_tail, 450, 0.18),   # (loader, promote top N to ranked list, tail mass)
+SONG_ARTISTS = ["Taylor Swift", "The Beatles", "Drake", "Michael Jackson", "Elvis Presley", "Madonna", "Rihanna", "Elton John",
+                "Ed Sheeran", "Beyonce", "Mariah Carey", "Ariana Grande", "Justin Bieber", "Eminem", "Lady Gaga", "Katy Perry",
+                "Bruno Mars", "Stevie Wonder", "Whitney Houston", "Prince", "The Weeknd", "Queen", "The Rolling Stones", "Britney Spears"]
+
+CUSTOM = {  # prompt: (loader, promote top N by popularity into the ranked list, unused)
+    "Name a singer or band": (billboard_tail, 450, 0.18),
     "Name a language": (language_tail, 0, 0.10),
+    "Name a video game": (D.video_games, 150, 0),
+    "Name a board game": (D.board_games, 120, 0),
+    "Name a famous author": (D.authors, 150, 0),
+    "Name a Pokémon": (D.pokemon, 0, 0),
+    "Name a colour": (D.colours, 0, 0),
+    "Name a European city": (D.european_cities, 0, 0),
+    "Name a US city": (D.us_cities, 0, 0),
+    "Name an English town or city": (D.english_towns, 0, 0),
+    "Name a city": (D.world_cities, 0, 0),
+    "Name a good name for a cat": (D.baby_names, 0, 0),
+    "Name a word that rhymes with cat": (lambda: D.rhymes("cat"), 0, 0),
+    "Name a word that rhymes with day": (lambda: D.rhymes("day"), 60, 0),
+    "Name a word that rhymes with light": (lambda: D.rhymes("light"), 60, 0),
+    "Name a word that rhymes with bee": (lambda: D.rhymes("bee"), 60, 0),
+    "Name a word that rhymes with blue": (lambda: D.rhymes("blue"), 60, 0),
+    "Name a word that rhymes with mouse": (lambda: D.rhymes("mouse"), 30, 0),
+    "Name a song": (D.songs, 400, 0),
+    "Name a book": (D.books, 300, 0),
+    "Name a boy's name": (lambda: D.baby_names("boy"), 300, 0),
+    "Name a girl's name": (lambda: D.baby_names("girl"), 300, 0),
 }
+for _a in SONG_ARTISTS:
+    CUSTOM[f"Name a song by {_a}"] = ((lambda a=_a: D.songs(a)), 25, 0)
+    PROMPTS.setdefault(f"Name a song by {_a}", "")
+for _q in ["Name a song", "Name a book", "Name a boy's name", "Name a girl's name", "Name a city",
+           "Name a word that rhymes with day", "Name a word that rhymes with light", "Name a word that rhymes with bee",
+           "Name a word that rhymes with blue", "Name a word that rhymes with mouse"]:
+    PROMPTS.setdefault(_q, "")
+PROMPTS["Name a song"] = """bohemian rhapsody, happy birthday, wonderwall, thriller, billie jean, hey jude, yesterday, imagine, let it be, shake it off,
+sweet caroline, mr brightside, don't stop believin', hotel california, stairway to heaven, smells like teen spirit, like a prayer,
+dancing queen, i will always love you, all i want for christmas is you, last christmas, jingle bells, blinding lights, shape of you,
+uptown funk, rolling in the deep, someone like you, hello, bad guy, as it was, anti-hero, flowers, despacito, gangnam style,
+baby, umbrella, single ladies, crazy in love, halo, toxic, oops i did it again, baby one more time, wannabe, my heart will go on,
+purple rain, born to run, livin' on a prayer, sweet child o' mine, we will rock you, we are the champions, don't stop me now,
+another one bites the dust, under pressure, heroes, space oddity, rocket man, your song, tiny dancer, i'm still standing,
+yellow, fix you, viva la vida, africa, take on me, never gonna give you up, ymca, macarena, dancing on my own, rather be,
+see you again, old town road, levitating, espresso, good 4 u, drivers license, watermelon sugar, perfect, thinking out loud,
+lose control, a bar song, cruel summer, love story, blank space, happy, get lucky, call me maybe, poker face, bad romance,
+firework, roar, teenage dream, wrecking ball, hips don't lie, waka waka, rehab, valerie, back to black, hallelujah, bridge over troubled water,
+yesterday, here comes the sun, i want to hold your hand, satisfaction, paint it black, respect, i will survive, stayin' alive,
+superstition, what a wonderful world, my way, fly me to the moon, jolene, 9 to 5, take me home country roads, ring of fire,
+hound dog, jailhouse rock, can't help falling in love, suspicious minds, johnny b. goode, la bamba, twist and shout, stand by me,
+lean on me, ain't no mountain high enough, my girl, i heard it through the grapevine, let's stay together, no woman no cry,
+one love, three little birds, redemption song, smooth, wonderful tonight, layla, creep, karma police, champagne supernova,
+don't look back in anger, song 2, parklife, common people, chasing cars, angels, rock dj, toxic, mambo no. 5, barbie girl"""
+PROMPTS["Name a city"] = """london, paris, new york, tokyo, rome, los angeles, dubai, barcelona, sydney, berlin, madrid, amsterdam, chicago, las vegas,
+miami, san francisco, hong kong, singapore, bangkok, istanbul, moscow, beijing, shanghai, mumbai, delhi, rio de janeiro, cairo, toronto,
+vancouver, dublin, edinburgh, manchester, liverpool, venice, florence, milan, prague, vienna, budapest, lisbon, athens, seoul, mexico city,
+buenos aires, cape town, melbourne, boston, seattle, washington, birmingham, glasgow, leeds, bristol, copenhagen, stockholm, oslo"""
 
 
 def build(q, text, base=None):
@@ -152,6 +205,8 @@ def build(q, text, base=None):
     if q in CUSTOM:
         loader, promote, mass = CUSTOM[q]
         for names, z in loader():
+            if not names or not names[0]:
+                continue
             k = norm(names[0])
             if k and k not in seen:
                 seen.add(k)
@@ -175,6 +230,8 @@ def build(q, text, base=None):
                 a = next((byk[norm(x)] for x in names if norm(x) in byk), None)
                 picked.append({"a": a["a"], "k": sorted(set(a.get("k", [norm(a["a"])]) + [norm(x) for x in names])), "n": a["n"]} if a
                               else {"a": names[0], "k": sorted({norm(x) for x in names}), "n": 5000})
+        elif flt and flt[0] == "top":  # only the best-known N of a huge list
+            picked = pool[:flt[1]]
         else:
             deny = {norm(x) for names in parse_hand(flt[1]) for x in names} if flt else set()
             picked = [a for a in pool if not (set(a.get("k", [norm(a["a"])])) & deny)]
@@ -198,8 +255,5 @@ def build(q, text, base=None):
 if __name__ == "__main__":
     base = {q: build(q, text) for q, text in PROMPTS.items()}          # phase 1: each prompt on its own
     prompts = [{"q": q, "answers": build(q, text, base) if q in INCLUDES else base[q]} for q, text in PROMPTS.items()]  # phase 2
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf8") as f:
-        json.dump({"version": 2, "pack": "classic", "prompts": prompts}, f, separators=(",", ":"), ensure_ascii=False)
-    total = sum(len(p["answers"]) for p in prompts)
-    print(f"classic: {len(prompts)} prompts, {total} answers -> {OUT} ({os.path.getsize(OUT)//1024} KB)")
+    from rarity import write_pack
+    write_pack(os.path.join(ROOT, "data", "classic"), "classic", prompts)

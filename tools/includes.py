@@ -62,8 +62,8 @@ INCLUDES = {
                                           ("Name a snack", None)],
 "Name something you'd find at the beach": [("Name a sea creature", None), ("Name a bird", ("only", "seagull|gull, puffin, tern, sandpiper, oystercatcher, cormorant, gannet, pelican, albatross, plover, curlew, turnstone, kittiwake, guillemot, razorbill, fulmar, skua, frigatebird, booby, heron, egret"))],
 "Name a sport": [("Name a martial art", None)],
-"Name a hobby": [("Name a sport", None), ("Name a musical instrument", None), ("Name a dance", None), ("Name a martial art", None),
-                 ("Name a board game", None), ("Name a card game", None)],
+"Name a hobby": [("Name a sport", ("top", 300)), ("Name a musical instrument", None), ("Name a dance", None), ("Name a martial art", None),
+                 ("Name a board game", ("top", 150)), ("Name a card game", ("top", 80))],
 "Name a dessert": [("Name a cake", None), ("Name a biscuit or cookie", None)],
 "Name a snack": [("Name a chocolate bar", None), ("Name a sweet or candy", None), ("Name a biscuit or cookie", None), ("Name a nut", None), ("Name a fruit", None)],
 "Name a breakfast food": [("Name a breakfast cereal", None), ("Name a type of bread", None)],
@@ -79,6 +79,7 @@ INCLUDES = {
 "Name a colour": [("Name a gemstone", ("only", "ruby, emerald, sapphire, amethyst, jade, topaz, turquoise, amber, aquamarine, pearl, onyx, garnet, citrine, coral, ivory, jet, opal, peridot"))],
 "Name something that is yellow": [("Name a fruit", ("only", "banana, lemon, pineapple, mango, star fruit, yellow apple, golden delicious, quince, papaya, passion fruit, yellow plum, yellow kiwi, pomelo, ugli fruit, yuzu, physalis")),
                                  ("Name a flower", ("only", "sunflower, daffodil, buttercup, dandelion, marigold, yellow rose, primrose, forsythia, laburnum, yellow tulip, goldenrod, mimosa, cowslip"))],
+"Name a city": [("Name a capital city", None), ("Name a European city", None), ("Name a US city", None), ("Name an English town or city", None)],
 "Name a European city": [("Name a capital city", ("only", "london, paris, rome, madrid, berlin, dublin, edinburgh, cardiff, belfast, athens, lisbon, amsterdam, brussels, vienna, stockholm, oslo, copenhagen, helsinki, prague, budapest, warsaw, bern, reykjavik, kyiv|kiev, bucharest, sofia, belgrade, zagreb, ljubljana, bratislava, tallinn, riga, vilnius, minsk, valletta, nicosia, monaco, vaduz, andorra la vella, san marino, luxembourg, podgorica, sarajevo, skopje, tirana, pristina, chisinau, moscow"))],
 }
 
@@ -104,9 +105,11 @@ WEIGHTS = {
     "Name a fictional wizard or witch": {"Name a Harry Potter character": .2},
     "Name something in space": {"Name a planet or moon": .1, "Name a constellation": .05},
     "Name a European city": {"Name a capital city": .3},
+    "Name a city": {"Name a capital city": .3, "Name a European city": .15, "Name a US city": .15, "Name an English town or city": .1},
 }
 
 import re as _re
 for _k, _v in INCLUDES.items():  # strip "x? " uncertain entries from the filters above
-    INCLUDES[_k] = [(s, None if f is None else (f[0], _re.sub(r"[^,]*\? ?,?", "", f[1])), WEIGHTS.get(_k, {}).get(s, .04)) for s, f in _v]
+    INCLUDES[_k] = [(s, None if f is None or f[0] == "top" else (f[0], _re.sub(r"[^,]*\? ?,?", "", f[1])), WEIGHTS.get(_k, {}).get(s, .04)) if not (f and f[0] == "top")
+                    else (s, f, WEIGHTS.get(_k, {}).get(s, .04)) for s, f in _v]
 FLYING_HEROES = _re.sub(r"[^,]*\? ?,?", "", FLYING_HEROES)

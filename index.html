@@ -15,6 +15,8 @@
 <canvas id="scene"></canvas>
 <div class="crt"></div>
 <div id="banner" class="banner"></div>
+<button id="catHit" class="cathit" aria-label="Pet the cat"></button>
+<div id="bubble" class="bubble"></div>
 
 <!-- TITLE -->
 <section id="title" class="screen active">
@@ -30,6 +32,10 @@
     <button id="btnDaily" class="big">▶ DAILY CHASE ◀</button>
     <button id="btnResume" class="mid resume hidden"></button>
     <button id="btnUnlimited" class="mid">∞ UNLIMITED <span class="pill">endless</span></button>
+    <div class="row2">
+      <button id="btnCat" class="mid">🐈 CUSTOMISE CAT</button>
+      <button id="btnBoard" class="mid">🏆 LEADERBOARD</button>
+    </div>
     <details class="how">
       <summary>▸ HOW TO PLAY</summary>
       <ol>
@@ -87,9 +93,39 @@
       <button id="btnHome" class="link">home</button>
     </div>
     <p id="shareMsg" class="sharemsg"></p>
+    <form id="submitForm" class="submit hidden" autocomplete="off">
+      <input id="lbName" maxlength="10" placeholder="your name (10 max)" spellcheck="false">
+      <button type="submit" class="mid">SUBMIT 🏆</button>
+    </form>
+    <p id="submitMsg" class="sharemsg"></p>
   </div>
 </section>
 
+<!-- CAT CUSTOMISER -->
+<div id="catPanel" class="modal hidden">
+  <div class="card">
+    <p class="tagline">YOUR CAT</p>
+    <canvas id="catPreview" width="240" height="150"></canvas>
+    <p class="label">BREED</p>
+    <div id="breedList" class="chips"></div>
+    <p class="label">COAT</p>
+    <div id="coatList" class="chips swatches"></div>
+    <button id="btnCatDone" class="mid">DONE ✓</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="boardPanel" class="modal hidden">
+  <div class="card">
+    <p class="tagline" id="boardTitle">TODAY'S TOP CHASERS</p>
+    <div class="packs small"><button class="boardtab" data-pack="classic">🧶 CLASSIC</button><button class="boardtab" data-pack="movies">🎬 MOVIES</button></div>
+    <ol id="boardList" class="board"></ol>
+    <p id="boardMsg" class="sharemsg"></p>
+    <button id="btnBoardClose" class="mid">CLOSE</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
