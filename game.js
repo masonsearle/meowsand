@@ -872,7 +872,7 @@ const LB_ON = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
 const MAX_SCORE = 1600; // 7 rounds can't physically exceed this
 function lb(path, opts = {}) {
   return fetch(CFG.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + path, Object.assign({}, opts, {
-    headers: Object.assign({ apikey: CFG.supabaseAnonKey, Authorization: "Bearer " + CFG.supabaseAnonKey, "Content-Type": "application/json" }, opts.headers || {}),
+    headers: Object.assign({ apikey: CFG.supabaseAnonKey, "Content-Type": "application/json" }, opts.headers || {}), // new sb_publishable keys go in apikey only
   }));
 }
 const cleanName = (s) => s.toUpperCase().replace(/[^A-Z0-9 _-]/g, "").trim().slice(0, 10);
