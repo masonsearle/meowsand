@@ -97,14 +97,14 @@ function usePack(name) {
   PACK = name; store.set("pack", name);
   const apply = (pool) => ({ DATA, BASE_IDS, TOTAL_ANSWERS, cache } = pool);
   if (LOADED[name]) { apply(LOADED[name]); return Promise.resolve(); }
-  return fetch(PACKS[name].dir + "/index.json").then((r) => r.json()).then((d) => { LOADED[name] = buildPool(d); if (PACK === name) apply(LOADED[name]); });
+  return fetch(PACKS[name].dir + "/index.json", { cache: "no-cache" }).then((r) => r.json()).then((d) => { LOADED[name] = buildPool(d); if (PACK === name) apply(LOADED[name]); });
 }
 function getPrompt(id) { return cache.get(id); }
 const validIds = (ids) => Array.isArray(ids) && ids.every((id) => /^\d+$/.test(id) && +id < BASE_IDS.length);
 function loadPrompts(ids) {
   const dir = PACKS[PACK].dir, c = cache;
   return Promise.all(ids.filter((id) => validIds([id]) && !c.has(id)).map((id) =>
-    fetch(`${dir}/${id}.json`).then((r) => r.json()).then((p) => c.set(id, { id, q: p.q, answers: p.answers }))));
+    fetch(`${dir}/${id}.json?v=${DATA.total}`).then((r) => r.json()).then((p) => c.set(id, { id, q: p.q, answers: p.answers }))));
 }
 
 /* ---------- seeded randomness ---------- */
