@@ -31,6 +31,7 @@
     </div>
     <button id="btnDaily" class="big">▶ DAILY CHASE ◀</button>
     <button id="btnResume" class="mid resume hidden"></button>
+    <button id="btnBattle" class="mid battlebtn">⚔️ 1V1 BATTLE <span class="pill">new</span></button>
     <button id="btnUnlimited" class="mid">∞ UNLIMITED <span class="pill">endless</span></button>
     <div class="row2">
       <button id="btnCat" class="mid">🐈 CUSTOMISE CAT</button>
@@ -101,6 +102,68 @@
   </div>
 </section>
 
+<!-- 1V1: LOBBY LIST -->
+<section id="lobby" class="screen">
+  <div class="card">
+    <p class="tagline">⚔️ 1V1 BATTLE</p>
+    <p class="sub">same prompts · compare answers · the difference hurts · first cat to 0 loses</p>
+    <p class="label">YOUR NAME</p>
+    <div class="submit"><input id="bName" maxlength="12" placeholder="display name" spellcheck="false" autocomplete="off"></div>
+    <p class="label">PACK FOR NEW LOBBIES</p>
+    <div class="packs small"><button class="bpack" data-pack="classic">🧶 CLASSIC</button><button class="bpack" data-pack="movies">🎬 MOVIES</button></div>
+    <p class="label">OPEN LOBBIES</p>
+    <ol id="lobbyList" class="board lobbies"></ol>
+    <button id="bCreate" class="mid">+ CREATE LOBBY</button>
+    <p id="lobbyMsg" class="sharemsg"></p>
+    <button id="bLobbyBack" class="link">◀ back</button>
+  </div>
+</section>
+
+<!-- 1V1: WAITING ROOM -->
+<section id="room" class="screen">
+  <div class="card">
+    <p class="tagline">LOBBY</p>
+    <p class="label" id="roomPack"></p>
+    <div id="roomPlayers" class="versus"></div>
+    <p id="roomMsg" class="sharemsg"></p>
+    <button id="bStart" class="big" disabled>⚔️ START BATTLE</button>
+    <button id="bRoomLeave" class="link">leave lobby</button>
+  </div>
+</section>
+
+<!-- 1V1: BATTLE -->
+<section id="battle" class="screen">
+  <div class="vshud">
+    <div class="fighter" id="fMe"><canvas width="120" height="75"></canvas><div class="fname"></div><div class="hp"><i></i></div><div class="hptext"></div></div>
+    <div class="vsmid"><b id="bRound">PROMPT 1</b><small id="bMult">damage ×1</small><button id="bQuit" class="link">quit</button></div>
+    <div class="fighter right" id="fThem"><canvas width="120" height="75"></canvas><div class="fname"></div><div class="hp"><i></i></div><div class="hptext"></div></div>
+  </div>
+  <div class="card">
+    <div class="timer"><div id="bTimer"></div></div>
+    <h2 id="bPrompt"></h2>
+    <form id="bForm" autocomplete="off"><input id="bAnswer" type="text" placeholder="type an answer…" autocapitalize="off" spellcheck="false" maxlength="60"><button type="submit">GO</button></form>
+    <div id="bFeedback" class="feedback"></div>
+    <div id="bWait" class="bwait hidden"></div>
+    <div id="bResult" class="hidden"></div>
+  </div>
+</section>
+
+<!-- 1V1: RESULT -->
+<section id="battleEnd" class="screen">
+  <div class="card">
+    <div id="beTitle" class="total">VICTORY!</div>
+    <canvas id="beCat" width="240" height="150"></canvas>
+    <p id="beSub" class="sub"></p>
+    <p id="beBest" class="sharemsg"></p>
+    <p id="beRecord" class="label"></p>
+    <div class="row">
+      <button id="beRematch" class="mid">⚔️ REMATCH</button>
+      <span id="beWaitHost" class="sharemsg">waiting for the host to start a rematch…</span>
+      <button id="beLeave" class="link">back to lobbies</button>
+    </div>
+  </div>
+</section>
+
 <!-- CAT CUSTOMISER -->
 <div id="catPanel" class="modal hidden">
   <div class="card">
@@ -127,5 +190,6 @@
 
 <script src="config.js"></script>
 <script src="game.js"></script>
+<script src="battle.js"></script>
 </body>
 </html>

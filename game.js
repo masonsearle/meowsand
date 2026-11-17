@@ -962,4 +962,7 @@ usePack(PACK).then(() => {
   renderTitle();
 }).catch((e) => { console.error(e); $("loading").textContent = "couldn't load prompts. If you opened index.html directly, run a local server (see README)."; });
 if (location.hash === "#debug") window.meow = { scene, getPrompt, loadPrompts, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
+// shared with battle.js (1v1 mode)
+window.MeowCore = { $, store, esc, fmt, norm, findAnswer, metres, tierOf, TIERS, pct, usePack, loadPrompts, getPrompt, scene, show, rng, hash, shuffle,
+  renderTitle, SECONDS, CFG, COATS, BREEDS, get BASE_IDS() { return BASE_IDS; }, get PACK() { return PACK; } };
 })();

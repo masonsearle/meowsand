@@ -25,7 +25,7 @@ python -m http.server 8000   # then open http://localhost:8000
 ## Your cat
 Tap the cat on the title screen and it meows. **🐈 Customise cat** has 8 breeds (Shorthair, Maine Coon, Persian, Scottish Fold, Siamese, Bengal, Sphynx, Munchkin) and 13 coats. Your choice is saved in the browser.
 
-## Leaderboard setup (optional, about 5 minutes, free)
+## Leaderboard + 1v1 setup (optional, about 5 minutes, free)
 The site is static, so scores need a tiny free database. Until you fill in `config.js`, the leaderboard simply stays hidden.
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor** in the project, paste this and press **Run**:
@@ -47,6 +47,17 @@ create policy "anyone can add today's score" on scores for insert
 
 Players can submit their Daily Chase score once per day per pack, under a name of up to 10 characters.
 Note: like any no-login web game, a determined person could post a fake score directly. If that happens, delete the row in Supabase's Table Editor.
+
+## ⚔️ 1v1 Battle
+Play a friend live:
+1. Both open the site and press **⚔️ 1V1 BATTLE**, then enter a display name.
+2. One of you presses **+ Create lobby**. It appears in the other person's **Open lobbies** list, where they press **Join**.
+3. The host presses **Start battle**.
+
+You both get the same prompt. Once you've both answered, the answers are shown side by side, and the difference in metres comes off the lower scorer's health (300 HP each). Damage is multiplied by 1.5 after every 7 prompts (×1, ×1.5, ×2.25…). The first cat to 0 loses. The host can start a rematch, and your win/loss record against each friend is saved.
+
+Battles use **Supabase Realtime**, from the same free project and `config.js` as the leaderboard. No extra tables are needed. If lobbies never appear, check that **Realtime** is enabled and public channels are allowed in the Supabase dashboard (Project Settings → Realtime).
+For testing on one computer without Supabase, open the site with `?mock` in two tabs (e.g. `index.html?mock`).
 
 ## Why lists rather than tagging every answer?
 Answers live in category lists, and prompts borrow from each other (`tools/includes.py`): every bird "flies", every dog breed is "an animal". That's tagging at the category level. Where a dataset already carries tags (films with genre, cast and year; songs with artist; cities with country), prompts are built straight from those tags. Hand-tagging 200,000 answers one by one would be slower and less accurate than this.
