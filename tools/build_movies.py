@@ -15,6 +15,7 @@ sys.path.insert(0, HERE)
 from rarity import norm, parse_hand, score
 from movies_heads import HEADS, CLOSED, ACTORS
 from categories import HANDWRITTEN
+from franchises import FRANCHISES
 
 ROOT = os.path.dirname(HERE)
 SOURCES = os.path.join(ROOT, "..", "sources")
@@ -204,6 +205,7 @@ titanic, love actually, notting hill, elf, the grinch, the polar express, dirty 
 ferris bueller's day off, the goonies, gremlins, beetlejuice, edward scissorhands, the nightmare before christmas, matilda, paddington"""
 mseen = set()
 merged = parse_hand(TOP, mseen)  # the all-time most-named films go first, then every list interleaved
+merged += parse_hand(", ".join(FRANCHISES.values()), mseen)  # then famous sequels
 for i in range(max(len(l) for l in lists)):
     for l in lists:
         if i < len(l) and not ({norm(x) for x in l[i]} & mseen):
@@ -224,6 +226,56 @@ for q, text in CLOSED.items():
     prompts.append(build_one(q, text, tail, 0))
 prompts.append(build_one("Name a Disney film", HANDWRITTEN["Name a Disney film"], [], 0))
 prompts.append(build_one("Name a film actor or actress", HEADS["Name a film actor or actress"], people_tail(), 300))
+
+# famous movie characters: superheroes, wizards and villains are movie characters too
+classic = {p["q"]: p["answers"] for p in json.load(open(os.path.join(ROOT, "data", "prompts.json"), encoding="utf8"))["prompts"]}
+for p in prompts:
+    if p["q"] == "Name a famous movie character":
+        have = {k for a in p["answers"] for k in a.get("k", [norm(a["a"])])}
+        extra = parse_hand(CLOSED["Name a famous movie villain"])
+        for src in ["Name a superhero", "Name a Harry Potter character", "Name a fictional wizard or witch"]:
+            extra += [[a["a"]] + a.get("k", []) for a in classic.get(src, [])]
+        head = [[a["a"]] + a.get("k", []) for a in p["answers"]]
+        byk = {k: a for a in p["answers"] for k in a.get("k", [norm(a["a"])])}
+        tail = []
+        for n in extra:
+            ks = {norm(x) for x in n} - {""}
+            hit = next((byk[k] for k in ks if k in byk), None)
+            if hit:  # same character: just learn the extra spellings ("hermione")
+                hit["k"] = sorted(set(hit.get("k", [norm(hit["a"])])) | ks)
+            else:
+                tail.append((n, 1.0))
+                for k in ks:
+                    byk[k] = {"a": n[0], "k": sorted(ks)}
+        head = [[a["a"]] + a.get("k", []) for a in p["answers"]]
+        p["answers"] = score(head, tail, head_wordfreq=False)
+
+# sequel autocorrect: "matrix 2" -> The Matrix Reloaded
+EXACT, SUFFIX = collections.defaultdict(set), []
+for keys, films in FRANCHISES.items():
+    names = [norm(k) for k in keys.split("|")]
+    for i, film in enumerate([f for f in films.split(",") if f.strip()], 1):
+        aliases = {f"{n} {i}" for n in names}
+        for alt in film.split("|"):
+            t = norm(alt)
+            EXACT[t] |= aliases
+            if len(t) >= 8:
+                SUFFIX.append((" " + t, aliases, names))
+n_alias = 0
+for p in prompts:
+    for a in p["answers"]:
+        keys = set(a.get("k", [norm(a["a"])])) | {norm(a["a"])}
+        add = set()
+        for k in keys:
+            add |= EXACT.get(k, set())
+            for suf, al, names in SUFFIX:
+                if k.endswith(suf) and any(n in k for n in names):  # e.g. "star wars episode v the empire strikes back"
+                    add |= al
+        add -= keys
+        if add:
+            a["k"] = sorted(keys | add)
+            n_alias += 1
+print("sequel aliases attached:", n_alias)
 
 prompts = [p for p in prompts if len(p["answers"]) >= 10]
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

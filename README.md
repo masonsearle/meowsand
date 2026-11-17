@@ -22,6 +22,11 @@ python -m http.server 8000   # then open http://localhost:8000
 2. Repo → **Settings → Pages** → Source: *Deploy from a branch* → `main` / `(root)`.
 3. Your game will be live at `https://<username>.github.io/meowsand/`.
 
+## "Technically true" answers
+Prompts borrow answers from each other (`tools/includes.py`), so every bird counts as something that flies, every dog breed is an animal, and any food is something in a kitchen. Each borrowed category has a weight for how often players would reach for it, so the rarity stays realistic.
+
+In Movies, sequel numbers autocorrect (`tools/franchises.py`): "matrix 2" counts as The Matrix Reloaded, "star wars 5" as The Empire Strikes Back, and "rocky 2", "rocky ii" and "rocky part two" all match.
+
 ## Rebuilding the data
 ```bash
 bash tools/fetch_sources.sh      # downloads ../corpora and ../sources (open datasets)

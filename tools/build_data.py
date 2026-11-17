@@ -11,11 +11,16 @@ import csv, collections, glob, json, math, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from rarity import norm, freq, parse_hand, score
+from rarity import norm, freq, parse_hand, score, MAX_N
 from wordfreq import zipf_frequency
 from categories import HANDWRITTEN, CORPORA
 from categories_more import MORE
 from categories_extend import EXTEND, NEW
+from includes import INCLUDES
+try:
+    from categories_extend2 import EXTEND2
+except ImportError:
+    EXTEND2 = {}
 
 ROOT = os.path.dirname(HERE)
 CORPORA_DIR = os.path.join(ROOT, "..", "corpora")
@@ -117,11 +122,13 @@ CUSTOM = {
 }
 
 
-def build(q, text):
+def build(q, text, base=None):
     seen = set()
     head = parse_hand(text, seen)
     if q in EXTEND:
         head += parse_hand(EXTEND[q], seen)
+    if q in EXTEND2:
+        head += parse_hand(EXTEND2[q], seen)
     if q in BOOST:  # move current names up the ranking
         at, names = BOOST[q]
         keys = [norm(n) for n in names]
@@ -149,11 +156,48 @@ def build(q, text):
             if k and k not in seen:
                 seen.add(k)
                 tail.append((names, z))
-    return score(head, tail, tail_mass=mass, promote=promote)
+    own = score(head, tail, tail_mass=mass, promote=promote)
+    if base is None or q not in INCLUDES:
+        return own
+    # "technically true" answers borrowed from other prompts, each category weighted by how
+    # often players would reach for it; inside a category, keep the source's popularity order
+    seen = {k for a in own for k in a.get("k", [norm(a["a"])])}
+    rows = [(a, 1 / a["n"]) for a in own]
+    for src, flt, w in INCLUDES[q]:
+        if src not in base:
+            print("  include: unknown prompt", src)
+            continue
+        pool = base[src]
+        if flt and flt[0] == "only":
+            byk = {k: a for a in pool for k in a.get("k", [norm(a["a"])])}
+            picked = []
+            for names in parse_hand(flt[1]):
+                a = next((byk[norm(x)] for x in names if norm(x) in byk), None)
+                picked.append({"a": a["a"], "k": sorted(set(a.get("k", [norm(a["a"])]) + [norm(x) for x in names])), "n": a["n"]} if a
+                              else {"a": names[0], "k": sorted({norm(x) for x in names}), "n": 5000})
+        else:
+            deny = {norm(x) for names in parse_hand(flt[1]) for x in names} if flt else set()
+            picked = [a for a in pool if not (set(a.get("k", [norm(a["a"])])) & deny)]
+        tot = sum(1 / a["n"] for a in picked) or 1
+        for a in picked:
+            keys = set(a.get("k", [norm(a["a"])]))
+            if keys & seen:
+                continue
+            seen |= keys
+            rows.append(({"a": a["a"], "k": sorted(keys)}, w * (1 / a["n"]) / tot))
+    total = sum(sh for _, sh in rows)
+    out = []
+    for a, sh in rows:
+        e = {"a": a["a"], "n": int(min(MAX_N, max(2, round(total / sh))))}
+        if a.get("k") and a["k"] != [norm(a["a"])]:
+            e["k"] = a["k"]
+        out.append(e)
+    return sorted(out, key=lambda e: e["n"])
 
 
 if __name__ == "__main__":
-    prompts = [{"q": q, "answers": build(q, text)} for q, text in PROMPTS.items()]
+    base = {q: build(q, text) for q, text in PROMPTS.items()}          # phase 1: each prompt on its own
+    prompts = [{"q": q, "answers": build(q, text, base) if q in INCLUDES else base[q]} for q, text in PROMPTS.items()]  # phase 2
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf8") as f:
         json.dump({"version": 2, "pack": "classic", "prompts": prompts}, f, separators=(",", ":"), ensure_ascii=False)

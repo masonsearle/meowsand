@@ -47,10 +47,17 @@ function lev(a, b, max) {
   return prev[b.length];
 }
 const keysOf = (a) => a.k || (a.k = [norm(a.a)]);
+// "part two" / "ii" / "2" all mean the same; "ocean's twelve" == "oceans 12"
+const NUMW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13 };
+const ROMAN = { ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9 };
+function canon(k) {
+  const w = k.split(" ").filter((x) => !["part", "chapter", "episode", "vol", "volume", "pt"].includes(x));
+  return w.map((x, i) => (i > 0 && (NUMW[x] || (ROMAN[x] && (x !== "v" || i === w.length - 1)))) ? String(NUMW[x] || ROMAN[x]) : x).join(" ");
+}
 function indexOf(p) {
   if (p.idx) return p.idx;
   p.idx = new Map();
-  const add = (k, i) => { if (!p.idx.has(k)) p.idx.set(k, i); const c = k.replace(/ /g, ""); if (!p.idx.has(c)) p.idx.set(c, i); };
+  const add = (k, i) => { for (const v of [k, k.replace(/ /g, ""), canon(k)]) if (!p.idx.has(v)) p.idx.set(v, i); };
   p.answers.forEach((a, i) => add(norm(a.a), i));            // exact titles win over aliases
   p.answers.forEach((a, i) => keysOf(a).forEach((k) => add(k, i)));
   return p.idx;
@@ -59,7 +66,7 @@ const digits = (s) => (s.match(/\d+/g) || []).join(",");
 function findAnswer(p, raw) {
   const idx = indexOf(p), k = norm(raw);
   if (!k) return null;
-  for (const t of [k, k.replace(/ /g, ""), k.replace(/es$/, ""), k.replace(/s$/, ""), k + "s", k.replace(/ies$/, "y")])
+  for (const t of [k, k.replace(/ /g, ""), canon(k), k.replace(/es$/, ""), k.replace(/s$/, ""), k + "s", k.replace(/ies$/, "y")])
     if (idx.has(t)) return p.answers[idx.get(t)];
   if (k.length < 4) return null;
   const max = k.length >= 9 ? 2 : 1;
