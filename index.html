@@ -19,10 +19,14 @@
 <!-- TITLE -->
 <section id="title" class="screen active">
   <h1 class="logo" data-text="MEOWSAND">MEOWSAND</h1>
-  <p class="tagline">THE DAILY CHASE</p>
+  <p class="tagline" id="tagline">THE DAILY CHASE</p>
   <p class="sub">7 prompts · 25 seconds each · rarer answers roll further</p>
   <p class="sub count" id="count"></p>
   <div class="menu">
+    <div class="packs" role="tablist">
+      <button class="packtab" data-pack="classic">🧶 CLASSIC</button>
+      <button class="packtab" data-pack="movies">🎬 MOVIES</button>
+    </div>
     <button id="btnDaily" class="big">▶ DAILY CHASE ◀</button>
     <button id="btnResume" class="mid resume hidden"></button>
     <button id="btnUnlimited" class="mid">∞ UNLIMITED <span class="pill">endless</span></button>
@@ -34,6 +38,7 @@
         <li>The rarer your answer, the further the yarn rolls. Say “apple” and it barely moves. Say “jabuticaba” and the cat's in for a sprint.</li>
         <li>Answers rarer than <b>1 in 1,000</b> are <b>one in a meowsand</b>.</li>
         <li>Everyone gets the same 7 prompts in the Daily Chase. Unlimited never runs out, and your journey carries on through new lands every chase.</li>
+        <li>Switch to <b>🎬 MOVIES</b> for a whole pack of film prompts: genres, decades, actors, directors and franchises. It has its own daily chase, streak and journey.</li>
         <li>Need a break? Hit <b>◀ BACK</b> (or Esc) and resume later, with your timer saved.</li>
       </ol>
     </details>

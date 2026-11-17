@@ -46,16 +46,16 @@ function lev(a, b, max) {
   }
   return prev[b.length];
 }
+const keysOf = (a) => a.k || (a.k = [norm(a.a)]);
 function indexOf(p) {
   if (p.idx) return p.idx;
   p.idx = new Map();
-  p.answers.forEach((a, i) => a.k.forEach((k) => {
-    if (!p.idx.has(k)) p.idx.set(k, i);
-    const c = k.replace(/ /g, "");
-    if (!p.idx.has(c)) p.idx.set(c, i);
-  }));
+  const add = (k, i) => { if (!p.idx.has(k)) p.idx.set(k, i); const c = k.replace(/ /g, ""); if (!p.idx.has(c)) p.idx.set(c, i); };
+  p.answers.forEach((a, i) => add(norm(a.a), i));            // exact titles win over aliases
+  p.answers.forEach((a, i) => keysOf(a).forEach((k) => add(k, i)));
   return p.idx;
 }
+const digits = (s) => (s.match(/\d+/g) || []).join(",");
 function findAnswer(p, raw) {
   const idx = indexOf(p), k = norm(raw);
   if (!k) return null;
@@ -64,29 +64,42 @@ function findAnswer(p, raw) {
   if (k.length < 4) return null;
   const max = k.length >= 9 ? 2 : 1;
   let best = null, bd = max + 1;
+  const kd = digits(k);
   for (const [key, i] of idx) {
-    if (key.length < 4) continue;
+    if (key.length < 4 || digits(key) !== kd) continue; // never fuzz "toy story 2" into "toy story 3"
     const d = lev(k, key, max);
     if (d < bd || (d === bd && best && p.answers[i].n < best.n)) { bd = d; best = p.answers[i]; }
   }
   return bd <= max ? best : null;
 }
 
-/* ---------- prompt pool: base prompts + "starting with X" remixes ---------- */
-let DATA = null, BASE_IDS = [], VARIANT_IDS = [], TOTAL_ANSWERS = 0;
-const cache = new Map();
-const NO_REMIX = /rhymes with|starting with/i;
+/* ---------- packs & prompt pool: base prompts + "starting with X" remixes ---------- */
+const PACKS = {
+  classic: { file: "data/prompts.json", name: "CLASSIC", pfx: "", tag: "THE DAILY CHASE" },
+  movies: { file: "data/movies.json", name: "🎬 MOVIES", pfx: "movies:", tag: "MOVIE NIGHT" },
+};
+let PACK = store.get("pack", "classic"); if (!PACKS[PACK]) PACK = "classic";
+const K = (k, pack = PACK) => PACKS[pack].pfx + k; // per-pack storage key
+const LOADED = {};
+let DATA = null, BASE_IDS = [], VARIANT_IDS = [], TOTAL_ANSWERS = 0, cache = new Map();
+const NO_REMIX = /rhymes with|starting with|in its title|one-word/i;
 
-function buildPool() {
-  BASE_IDS = DATA.prompts.map((_, i) => String(i));
-  VARIANT_IDS = [];
-  DATA.prompts.forEach((p, i) => {
-    TOTAL_ANSWERS += p.answers.length;
+function buildPool(d) {
+  const pool = { DATA: d, BASE_IDS: d.prompts.map((_, i) => String(i)), VARIANT_IDS: [], TOTAL_ANSWERS: 0, cache: new Map() };
+  d.prompts.forEach((p, i) => {
+    pool.TOTAL_ANSWERS += p.answers.length;
     if (NO_REMIX.test(p.q)) return;
     const counts = {};
-    p.answers.forEach((a) => new Set(a.k.map((k) => k[0])).forEach((c) => { if (/[a-z]/.test(c)) counts[c] = (counts[c] || 0) + 1; }));
-    for (const [c, n] of Object.entries(counts).sort()) if (n >= 8 && n <= p.answers.length * 0.5) VARIANT_IDS.push(i + ":" + c);
+    p.answers.forEach((a) => new Set(keysOf(a).map((k) => k[0])).forEach((c) => { if (/[a-z]/.test(c)) counts[c] = (counts[c] || 0) + 1; }));
+    for (const [c, n] of Object.entries(counts).sort()) if (n >= 8 && n <= p.answers.length * 0.5) pool.VARIANT_IDS.push(i + ":" + c);
   });
+  return pool;
+}
+function usePack(name) {
+  PACK = name; store.set("pack", name);
+  const apply = (pool) => ({ DATA, BASE_IDS, VARIANT_IDS, TOTAL_ANSWERS, cache } = pool);
+  if (LOADED[name]) { apply(LOADED[name]); return Promise.resolve(); }
+  return fetch(PACKS[name].file).then((r) => r.json()).then((d) => { LOADED[name] = buildPool(d); if (PACK === name) apply(LOADED[name]); });
 }
 function getPrompt(id) {
   if (cache.has(id)) return cache.get(id);
@@ -95,11 +108,11 @@ function getPrompt(id) {
   let p;
   if (!letter) p = { id, q: base.q, answers: base.answers, base };
   else {
-    const sub = base.answers.filter((a) => a.k.some((k) => k[0] === letter));
+    const sub = base.answers.filter((a) => keysOf(a).some((k) => k[0] === letter));
     const sum = sub.reduce((s, a) => s + 1 / a.n, 0);
     const answers = sub.map((a) => {
-      const disp = norm(a.a)[0] === letter ? a.a : a.k.find((k) => k[0] === letter);
-      return { a: disp, k: a.k.filter((k) => k[0] === letter), n: Math.max(2, Math.round(sum * a.n)) };
+      const disp = norm(a.a)[0] === letter ? a.a : keysOf(a).find((k) => k[0] === letter);
+      return { a: disp, k: keysOf(a).filter((k) => k[0] === letter), n: Math.max(2, Math.round(sum * a.n)) };
     }).sort((x, y) => x.n - y.n);
     p = { id, q: `${base.q} starting with ${letter.toUpperCase()}`, answers, base, letter };
   }
@@ -116,16 +129,16 @@ const today = () => ymd(new Date());
 const dayNum = (day) => Math.floor((new Date(day) - new Date(LAUNCH)) / 864e5) + 1;
 
 function pickDaily() {
-  const r = rng(hash("meowsand-" + today()));
+  const r = rng(hash("meowsand-" + PACKS[PACK].pfx + today()));
   const base = shuffle(BASE_IDS, r).slice(0, 5);
   const used = new Set(base);
   const vars = shuffle(VARIANT_IDS, r).filter((v) => !used.has(v.split(":")[0])).slice(0, 2);
   return shuffle(base.concat(vars), r);
 }
 function pickUnlimited() {
-  let deck = store.get("deck", []);
+  let deck = store.get(K("deck"), []);
   if (!Array.isArray(deck) || deck.some((i) => !BASE_IDS.includes(i))) deck = [];
-  let recent = store.get("recentVar", []);
+  let recent = store.get(K("recentVar"), []);
   const out = [];
   while (out.length < ROUNDS) {
     if (Math.random() < 0.6 || !VARIANT_IDS.length) {
@@ -138,13 +151,13 @@ function pickUnlimited() {
       out.push(id); recent.push(id);
     }
   }
-  store.set("deck", deck); store.set("recentVar", recent.slice(-300));
+  store.set(K("deck"), deck); store.set(K("recentVar"), recent.slice(-300));
   return out;
 }
 
 /* ---------- game state & saving ---------- */
 let game = null, timer = null, deadline = 0, locked = false, paused = false;
-const saveKey = (g) => (g.mode === "daily" ? "save:daily:" + g.day : "save:unlimited");
+const saveKey = (g) => K(g.mode === "daily" ? "save:daily:" + g.day : "save:unlimited", g.pack || "classic");
 function persist() {
   if (!game || game.done) return;
   if (!locked && !paused) game.remaining = Math.max(0, deadline - performance.now());
@@ -155,14 +168,14 @@ function show(id) { document.querySelectorAll(".screen").forEach((s) => s.classL
 
 function start(mode) {
   if (mode === "daily") {
-    const done = store.get("daily:" + today());
+    const done = store.get(K("daily:" + today()));
     if (done) { game = done; scene.jumpTo(0); scene.rollTo(game.total, 0); return showEnd(); }
-    const saved = store.get("save:daily:" + today());
+    const saved = store.get(K("save:daily:" + today()));
     if (saved) return resume(saved);
-    game = { mode, day: today(), ids: pickDaily(), round: 0, results: [], total: 0, startM: 0, remaining: SECONDS * 1000 };
+    game = { pack: PACK, mode, day: today(), ids: pickDaily(), round: 0, results: [], total: 0, startM: 0, remaining: SECONDS * 1000 };
   } else {
-    const journey = store.get("journey", 0);
-    game = { mode, day: today(), ids: pickUnlimited(), round: 0, results: [], total: 0, startM: journey, remaining: SECONDS * 1000 };
+    const journey = store.get(K("journey"), 0);
+    game = { pack: PACK, mode, day: today(), ids: pickUnlimited(), round: 0, results: [], total: 0, startM: journey, remaining: SECONDS * 1000 };
   }
   scene.jumpTo(game.startM);
   enterPlay();
@@ -176,7 +189,7 @@ function resume(saved) {
   nextRound(Math.max(3000, game.remaining || 0));
 }
 function enterPlay() {
-  $("mode").textContent = game.mode === "daily" ? `DAILY #${dayNum(game.day)}` : "UNLIMITED";
+  $("mode").textContent = (game.pack === "movies" ? "🎬 " : "") + (game.mode === "daily" ? `DAILY #${dayNum(game.day)}` : "UNLIMITED");
   $("dist").textContent = fmt(game.total);
   paused = false;
   show("play");
@@ -265,22 +278,22 @@ function finish() {
   game.done = true;
   store.del(saveKey(game));
   if (game.mode === "daily") {
-    store.set("daily:" + game.day, game);
-    const st = store.get("stats", { played: 0, best: 0, streak: 0, last: null });
+    store.set(K("daily:" + game.day), game);
+    const st = store.get(K("stats"), { played: 0, best: 0, streak: 0, last: null });
     const y = ymd(new Date(Date.now() - 864e5));
     if (st.last !== game.day) { st.played++; st.streak = st.last === y ? st.streak + 1 : 1; st.last = game.day; }
     st.best = Math.max(st.best, game.total);
-    store.set("stats", st);
+    store.set(K("stats"), st);
   } else {
-    store.set("journey", game.startM + game.total);
-    if (game.total > store.get("unlimitedBest", 0)) store.set("unlimitedBest", game.total);
-    store.set("unlimitedChases", store.get("unlimitedChases", 0) + 1);
+    store.set(K("journey"), game.startM + game.total);
+    if (game.total > store.get(K("unlimitedBest"), 0)) store.set(K("unlimitedBest"), game.total);
+    store.set(K("unlimitedChases"), store.get(K("unlimitedChases"), 0) + 1);
   }
   showEnd();
 }
 
 function showEnd() {
-  $("endTitle").textContent = game.mode === "daily" ? `DAILY CHASE #${dayNum(game.day)}` : "UNLIMITED CHASE";
+  $("endTitle").textContent = (game.pack === "movies" ? "🎬 " : "") + (game.mode === "daily" ? `DAILY CHASE #${dayNum(game.day)}` : "UNLIMITED CHASE");
   $("endDist").textContent = fmt(game.total);
   const rarest = game.results.reduce((b, r) => (r.n > (b ? b.n : 0) ? r : b), null);
   const best = rarest && rarest.n ? tierOf(rarest.n) : null;
@@ -304,7 +317,7 @@ function showEnd() {
 
 function shareText() {
   const squares = game.results.map((r) => (r.n ? tierOf(r.n).emo : "⬛")).join("");
-  const head = game.mode === "daily" ? `MEOWSAND #${dayNum(game.day)}` : "MEOWSAND ∞";
+  const head = (game.pack === "movies" ? "MEOWSAND 🎬 " : "MEOWSAND ") + (game.mode === "daily" ? `#${dayNum(game.day)}` : "∞");
   return `${head} 🧶\n🐈 ${fmt(game.total)} m\n${squares}\n${location.origin + location.pathname}`;
 }
 async function share() {
@@ -317,16 +330,18 @@ async function share() {
 }
 
 function renderTitle() {
-  const st = store.get("stats", null), ub = store.get("unlimitedBest", 0), jr = store.get("journey", 0);
+  document.querySelectorAll(".packtab").forEach((b) => b.classList.toggle("on", b.dataset.pack === PACK));
+  $("tagline").textContent = PACKS[PACK].tag;
+  const st = store.get(K("stats"), null), ub = store.get(K("unlimitedBest"), 0), jr = store.get(K("journey"), 0);
   const parts = [];
   if (st) parts.push(`streak ${st.streak} · daily best ${fmt(st.best)} m`);
   if (ub) parts.push(`unlimited best ${fmt(ub)} m · journey ${fmt(jr)} m`);
   $("stats").textContent = parts.join("  ·  ");
-  if (DATA) $("count").textContent = `${fmt(BASE_IDS.length + VARIANT_IDS.length)} prompts · ${fmt(TOTAL_ANSWERS)} answers`;
+  $("count").textContent = DATA ? `${fmt(BASE_IDS.length + VARIANT_IDS.length)} prompts · ${fmt(TOTAL_ANSWERS)} answers` : "loading…";
 
-  const dDone = store.get("daily:" + today()), dSave = store.get("save:daily:" + today());
+  const dDone = store.get(K("daily:" + today())), dSave = store.get(K("save:daily:" + today()));
   $("btnDaily").innerHTML = dDone ? "✓ DAILY DONE · SEE RESULTS" : dSave ? `▶ RESUME DAILY <small>${dSave.results.length}/7 · ${fmt(dSave.total)}m</small>` : "▶ DAILY CHASE ◀";
-  const uSave = store.get("save:unlimited");
+  const uSave = store.get(K("save:unlimited"));
   $("btnResume").classList.toggle("hidden", !uSave);
   if (uSave) $("btnResume").innerHTML = `▶ RESUME UNLIMITED <small>${uSave.results.length}/7 · ${fmt(uSave.total)}m</small>`;
   $("btnUnlimited").innerHTML = uSave ? "∞ NEW UNLIMITED CHASE" : `∞ UNLIMITED <span class="pill">endless</span>`;
@@ -632,7 +647,7 @@ const scene = (() => {
     },
     yarnScreen() { return { x: (yarnX - camX) * PX, y: (ground - 8) * PX }; },
   };
-if (location.hash === "#debug") window.meow = { scene, getPrompt, get game() { return game; } };
+if (location.hash === "#debug") window.meow = { scene, getPrompt, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
 })();
 
 /* ---------- wiring ---------- */
@@ -641,9 +656,15 @@ $("btnNext").addEventListener("click", () => { game.round++; nextRound(); });
 $("btnSkip").addEventListener("click", () => resolve(null, "skip"));
 $("btnBack").addEventListener("click", quitToTitle);
 $("btnDaily").addEventListener("click", () => start("daily"));
-$("btnUnlimited").addEventListener("click", () => { store.del("save:unlimited"); start("unlimited"); });
-$("btnResume").addEventListener("click", () => { const s = store.get("save:unlimited"); if (s) resume(s); });
-$("btnAgain").addEventListener("click", () => start("unlimited"));
+$("btnUnlimited").addEventListener("click", () => { store.del(K("save:unlimited")); start("unlimited"); });
+$("btnResume").addEventListener("click", () => { const s = store.get(K("save:unlimited")); if (s) resume(s); });
+const setButtons = (on) => ["btnDaily", "btnUnlimited", "btnResume"].forEach((b) => ($(b).disabled = !on));
+document.querySelectorAll(".packtab").forEach((b) => b.addEventListener("click", () => {
+  if (b.dataset.pack === PACK && DATA) return;
+  setButtons(false); DATA = null; PACK = b.dataset.pack; renderTitle();
+  usePack(b.dataset.pack).then(() => { setButtons(true); renderTitle(); }).catch(() => ($("count").textContent = "couldn't load this pack"));
+}));
+$("btnAgain").addEventListener("click", () => { if (game && game.pack && game.pack !== PACK) { usePack(game.pack).then(() => start("unlimited")); } else start("unlimited"); });
 $("btnHome").addEventListener("click", () => { renderTitle(); show("title"); });
 $("btnShare").addEventListener("click", share);
 document.addEventListener("keydown", (e) => {
@@ -654,13 +675,13 @@ document.addEventListener("keydown", (e) => {
 addEventListener("pagehide", () => { if ($("play").classList.contains("active")) persist(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && $("play").classList.contains("active")) persist(); });
 
-["btnDaily", "btnUnlimited"].forEach((b) => ($(b).disabled = true));
-fetch("data/prompts.json").then((r) => r.json()).then((d) => {
-  DATA = d; buildPool();
+setButtons(false);
+renderTitle();
+usePack(PACK).then(() => {
   $("loading").remove();
-  ["btnDaily", "btnUnlimited"].forEach((b) => ($(b).disabled = false));
+  setButtons(true);
   scene.jumpTo(0);
   renderTitle();
 }).catch((e) => { console.error(e); $("loading").textContent = "couldn't load prompts. If you opened index.html directly, run a local server (see README)."; });
-if (location.hash === "#debug") window.meow = { scene, getPrompt, get game() { return game; } };
+if (location.hash === "#debug") window.meow = { scene, getPrompt, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
 })();
