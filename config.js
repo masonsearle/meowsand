@@ -4,5 +4,5 @@
 // Setup steps are in README.md under "Leaderboard setup".
 window.MEOWSAND_CONFIG = {
   supabaseUrl: "https://riqnnvpgcxakyqrktefh.supabase.co",
-  supabaseAnonKey: "",  // the long "anon public" key from Project Settings → API
+  supabaseAnonKey: "sb_publishable_75kc8neNSOrphhaAW77JhA_cqckRSE9",
 };
