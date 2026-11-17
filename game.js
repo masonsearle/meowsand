@@ -193,11 +193,21 @@ function nextRound(ms = SECONDS * 1000) {
   timer = setInterval(tick, 100);
   tick(); persist();
 }
+// big seconds counter: gold under 10s, red + pulsing under 5s
+function countdown(el, left) {
+  const sec = Math.ceil(left / 1000);
+  if (el.textContent !== String(sec)) {
+    el.textContent = sec;
+    el.className = "count" + (sec <= 5 ? " danger" : sec <= 10 ? " warn" : "");
+    if (sec <= 5 && sec > 0) { el.classList.remove("beat"); void el.offsetWidth; el.classList.add("beat"); }
+  }
+}
 function tick() {
   if (paused) return;
   const left = Math.max(0, deadline - performance.now());
   $("timerBar").style.width = (left / (SECONDS * 1000)) * 100 + "%";
   $("timerBar").classList.toggle("low", left < 6000);
+  countdown($("count1"), left);
   if (left <= 0) resolve(null, "time");
 }
 
@@ -423,6 +433,7 @@ const scene = (() => {
   /* sprites */
   const PAL = { o: "#f29b38", d: "#c4661c", w: "#fff4e0", k: "#1b2235", p: "#ff7aa2" };
   let CAT = null; // built below by buildCat()
+  const catCache = new Map();
   const BODY = ["o..............o..o.", "o.............oooooo", ".o............okooko", ".o............ooowpo", "..o.ddoddoddooowwwo.", "..ooooooooooooowww..", "...ooodoodoodoooo...", "...oooooooooooooo..."];
   const LEGS = [["..oo..........oo....", ".oo............oo..."], ["....oo......oo......", "....oo......oo......"]];
   const SIT = ["...............o..o.", "..............oooooo", "..............okooko", "..............ooowpo", "............oooowwwo", "..o.......ooodoowww.", ".o.......oooodooww..", ".o......ooooooooo...", "..oo....ooo.oo.oo...", "....ooooooo.oo.oo..."];
@@ -806,6 +817,19 @@ const scene = (() => {
     yarnScreen() { return { x: (yarnX - camX) * PX, y: (ground - 8) * PX }; },
     catScreen() { return { x: (catX - camX - 20) * PX, y: (ground - 10 - (CAT.top || 0)) * PX, w: 20 * PX, h: (10 + (CAT.top || 0)) * PX }; },
     poke() { if (!running && jump === 0) jump = 0.001; },
+    // small offscreen canvas with any cat in a pose: "sit", "run0", "run1"
+    catCanvas(cfg, pose = "sit") {
+      const key = JSON.stringify(cfg) + pose;
+      if (catCache.has(key)) return catCache.get(key);
+      const c = buildCat(cfg), cv = document.createElement("canvas");
+      const rows = pose === "sit" ? c.SIT : c.BODY.concat(c.LEGS[pose === "run1" ? 1 : 0]);
+      cv.width = 20; cv.height = rows.length;
+      const g = cv.getContext("2d");
+      rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) { const col = catColour(c, r[i], i, j); if (col) { g.fillStyle = col; g.fillRect(i, j, 1, 1); } } });
+      cv.fur = c.pal.o; cv.fur2 = c.pal.d;
+      catCache.set(key, cv);
+      return cv;
+    },
     setTheme(name) { if (THEMES[name] && B !== THEMES[name]) { B = THEMES[name]; theme = name; lastBiome = biomeIdx(yarnX / PPM); } },
     setCat(cfg) { CAT = buildCat(cfg); },
     preview(canvas, cfg) {
@@ -963,6 +987,6 @@ usePack(PACK).then(() => {
 }).catch((e) => { console.error(e); $("loading").textContent = "couldn't load prompts. If you opened index.html directly, run a local server (see README)."; });
 if (location.hash === "#debug") window.meow = { scene, getPrompt, loadPrompts, findAnswer, usePack, get DATA() { return DATA; }, get game() { return game; } };
 // shared with battle.js (1v1 mode)
-window.MeowCore = { $, store, esc, fmt, norm, findAnswer, metres, tierOf, TIERS, pct, usePack, loadPrompts, getPrompt, scene, show, rng, hash, shuffle,
+window.MeowCore = { countdown, $, store, esc, fmt, norm, findAnswer, metres, tierOf, TIERS, pct, usePack, loadPrompts, getPrompt, scene, show, rng, hash, shuffle,
   renderTitle, SECONDS, CFG, COATS, BREEDS, get BASE_IDS() { return BASE_IDS; }, get PACK() { return PACK; } };
 })();

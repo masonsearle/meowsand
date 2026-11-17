@@ -198,7 +198,7 @@ function hostStart() {
 }
 function onRoomMsg(m) {
   if (m.t === "start" && (!B || B.seed !== m.seed)) startBattle(m.seed, m.pack);
-  if (m.t === "ans" && B && m.seed === B.seed) { (B.ans[m.q] = B.ans[m.q] || {})[m.from] = m; checkBoth(); }
+  if (m.t === "ans" && B && m.seed === B.seed) { (B.ans[m.q] = B.ans[m.q] || {})[m.from] = m; if (m.q === B.q) arena.ready(m.from); checkBoth(); }
 }
 function idsForSet(seed, set) {
   return C.shuffle(C.BASE_IDS, C.rng(C.hash("battle-" + seed + "-" + set))).slice(0, Q_PER_SET);
@@ -246,6 +246,8 @@ async function nextQuestion() {
   $("bResult").classList.add("hidden");
   $("bAnswer").focus();
   B.deadline = performance.now() + SECS * 1000; B.mine = null;
+  arena.reset();
+  if ((B.ans[B.q] || {})[B.opp.id]) arena.ready(B.opp.id);
   clearInterval(B.timer);
   B.timer = setInterval(tick, 100); tick();
 }
@@ -254,6 +256,7 @@ function tick() {
   const left = Math.max(0, B.deadline - performance.now());
   $("bTimer").style.width = (left / (SECS * 1000)) * 100 + "%";
   $("bTimer").classList.toggle("low", left < 6000);
+  C.countdown($("count2"), left);
   if (left <= 0 && !B.mine) lockIn(null);
 }
 function submit(e) {
@@ -274,6 +277,8 @@ function lockIn(hit) {
   const m = hit ? C.metres(hit.n) : 0;
   B.mine = { t: "ans", seed: B.seed, q: B.q, a: hit ? hit.a : null, n: hit ? hit.n : 0, m, from: ME };
   (B.ans[B.q] = B.ans[B.q] || {})[ME] = B.mine;
+  arena.ready(ME);
+  if ((B.ans[B.q] || {})[B.opp.id]) arena.ready(B.opp.id);
   roomCh.send(B.mine);
   B.total += m;
   C.scene.rollTo(B.total, m, hit ? C.tierOf(hit.n).lvl : -1);
@@ -294,8 +299,13 @@ function checkBoth() {
   const mult = multFor(B.q), diff = Math.abs(mine.m - theirs.m), dmg = Math.round(diff * mult);
   let loser = null;
   if (mine.m > theirs.m) loser = B.opp.id; else if (theirs.m > mine.m) loser = ME;
-  if (loser) B.hp[loser] -= dmg;
   B.log.push({ q: B.prompt.q, me: mine, them: theirs, dmg, loser });
+  $("bWait").innerHTML = `<span class="dots">CAT FIGHT</span>`;
+  arena.brawl(loser, dmg, () => reveal(mine, theirs, loser, dmg, mult, diff));
+}
+function reveal(mine, theirs, loser, dmg, mult, diff) {
+  if (!B) return;
+  if (loser) B.hp[loser] -= dmg;
   const line = (who, x, cls) => `<div class="side ${cls}"><small>${esc(who)}</small><b>${esc(x.a ? x.a : "—")}</b><span>${x.a ? `1 in ${fmt(x.n)} · ` : ""}${x.m}m</span></div>`;
   const top = (B.prompt.answers || []).slice(0, 3).map((x) => x.a).join(" · ");
   $("bWait").classList.add("hidden");
@@ -347,6 +357,91 @@ function rematch() {
   if (!room || !room.isHost) return;
   B = null; hostStart();
 }
+
+/* ---------------- arena: the two cats, and the cat-fight ---------------- */
+const arena = (() => {
+  const cv = $("arena"), g = cv.getContext("2d"), W = cv.width, H = cv.height, FLOOR = 36;
+  const HOME_L = 22, HOME_R = W - 42;
+  let fight = null, t0 = performance.now(), ready = {};
+  const tinted = (img, col) => {
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+    const x = c.getContext("2d"); x.drawImage(img, 0, 0); x.globalCompositeOperation = "source-atop"; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height);
+    return c;
+  };
+  function cat(cfg, pose, x, y, flip, tint) {
+    let img = C.scene.catCanvas(cfg, pose);
+    if (tint) img = tinted(img, tint);
+    g.save(); g.translate(Math.round(x) + (flip ? 20 : 0), Math.round(y - img.height)); if (flip) g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore();
+    return img;
+  }
+  const label = (txt, x, y, col, size = 8) => { g.font = `bold ${size}px "Silkscreen", monospace`; g.textAlign = "center"; g.fillStyle = "#1b2235"; g.fillText(txt, x + 1, y + 1); g.fillStyle = col; g.fillText(txt, x, y); };
+  const star = (x, y, col) => { g.fillStyle = col; g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3); };
+  const ease = (k) => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
+  function draw(now) {
+    requestAnimationFrame(draw);
+    if (!$("battle").classList.contains("active") || !B) return;
+    const t = (now - t0) / 1000;
+    g.clearRect(0, 0, W, H);
+    const me = myCat(), them = B.opp.cat || {};
+    // little floor marks
+    g.fillStyle = "rgba(255,255,255,.06)"; for (let x = 8; x < W; x += 24) g.fillRect(x, FLOOR + 6, 10, 1);
+    if (!fight) {
+      const bob = (k) => (Math.sin(t * 3 + k) > 0.6 ? -1 : 0);
+      cat(me, "sit", HOME_L, FLOOR + bob(0), false);
+      cat(them, "sit", HOME_R, FLOOR + bob(2), true);
+      if (ready[ME]) label("✓", HOME_L + 12, FLOOR - 18, "#7ee081", 10);
+      if (ready[B.opp.id]) label("✓", HOME_R + 8, FLOOR - 18, "#7ee081", 10);
+      if (B.dizzy) { // the loser of the last scrap sees stars
+        const hx = (B.dizzy === ME ? HOME_L + 14 : HOME_R + 6), hy = FLOOR - 16;
+        for (let i = 0; i < 3; i++) { const a = t * 4 + (i * Math.PI * 2) / 3; star(hx + Math.cos(a) * 7, hy + Math.sin(a) * 2, "#ffd166"); }
+      }
+      return;
+    }
+    const T = (now - fight.start) / 1000, mid = W / 2 - 10, frame = Math.floor(T * 12) % 2 ? "run1" : "run0";
+    if (T < 0.55) { // charge!
+      const k = ease(T / 0.55);
+      cat(me, frame, HOME_L + (mid - 14 - HOME_L) * k, FLOOR, false);
+      cat(them, frame, HOME_R + (mid + 14 - HOME_R) * k, FLOOR, true);
+      for (let i = 0; i < 4; i++) { g.fillStyle = "rgba(255,255,255,.25)"; g.fillRect(HOME_L + (mid - HOME_L) * k - 6 - i * 4, FLOOR - 2 - (i % 2), 3, 2); g.fillRect(HOME_R + (mid - HOME_R) * k + 24 + i * 4, FLOOR - 2 - (i % 2), 3, 2); }
+    } else if (T < 2.05) { // the dust ball
+      const cx = W / 2 + Math.sin(T * 23) * 3, cy = FLOOR - 14 + Math.cos(T * 19) * 2;
+      for (let i = 0; i < 16; i++) {
+        const a = i * 2.39 + T * 6, r = 9 + (i % 4) * 3;
+        const x = cx + Math.cos(a) * r * 1.5, y = cy + Math.sin(a) * r * 0.8, rad = 7 + ((i * 7 + Math.floor(T * 10)) % 5);
+        g.fillStyle = i % 3 ? "#d8d2c4" : "#b9b2a2"; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+      }
+      g.fillStyle = "#efe9dc"; g.beginPath(); g.arc(cx, cy, 13, 0, 7); g.fill();
+      // paws, tails and heads poking out
+      for (let i = 0; i < 5; i++) {
+        const seed = Math.floor(T * 9) + i * 13, a = (seed * 1.7) % 6.28, fur = i % 2 ? C.scene.catCanvas(me, "sit").fur : C.scene.catCanvas(them, "sit").fur;
+        const x = cx + Math.cos(a) * 26, y = cy + Math.sin(a) * 14;
+        g.fillStyle = fur; g.fillRect(Math.round(x), Math.round(y), i === 2 ? 2 : 4, i === 2 ? 6 : 3);
+        g.fillStyle = "#fff4e0"; g.fillRect(Math.round(x) + (i === 2 ? 0 : 3), Math.round(y), 1, 1);
+      }
+      const syms = ["#", "@", "!", "$", "%", "*", "?!"];
+      for (let i = 0; i < 4; i++) { const k = (T * 2.5 + i * 0.25) % 1; label(syms[(Math.floor(T * 5) + i) % syms.length], cx - 24 + i * 16, cy - 4 - k * 8, ["#ff5c8a", "#ffd166", "#5ee6f0", "#ffffff"][i]); }
+      for (let i = 0; i < 6; i++) { const a = T * 8 + i; star(cx + Math.cos(a) * 34, cy + Math.sin(a * 1.3) * 16, "#ffd166"); }
+    } else { // tumble back out
+      const k = ease((T - 2.05) / 0.6), flash = Math.floor(T * 10) % 2 ? "rgba(255,40,80,.75)" : null;
+      const lose = fight.loser, hop = (id) => (lose && id !== lose ? -Math.abs(Math.sin(T * 8)) * 6 : 0);
+      cat(me, "sit", mid - 14 + (HOME_L - mid + 14) * k, FLOOR + hop(ME), false, lose === ME ? flash : null);
+      cat(them, "sit", mid + 14 + (HOME_R - mid - 14) * k, FLOOR + hop(B.opp.id), true, lose === B.opp.id ? flash : null);
+      g.globalAlpha = Math.max(0, 1 - k * 1.5);
+      for (let i = 0; i < 10; i++) { const a = i * 0.63; g.fillStyle = "#d8d2c4"; g.beginPath(); g.arc(W / 2 + Math.cos(a) * (14 + k * 40), FLOOR - 12 + Math.sin(a) * (8 + k * 14), 5 * (1 - k) + 1, 0, 7); g.fill(); }
+      g.globalAlpha = 1;
+      const rise = (T - 2.05) * 8;
+      if (lose) label(`-${fight.dmg}`, (lose === ME ? HOME_L + 10 : HOME_R + 10), FLOOR - 16 - rise, "#ff5c8a", 12);
+      else label("DRAW!", W / 2, FLOOR - 16 - rise, "#ffd166", 12);
+      if (T > 2.7 && !fight.done) { fight.done = true; const cb = fight.onDone; B.dizzy = lose; fight = null; ready = {}; cb(); }
+    }
+  }
+  requestAnimationFrame(draw);
+  return {
+    brawl(loser, dmg, onDone) { fight = { start: performance.now(), loser, dmg, onDone }; },
+    reset() { fight = null; ready = {}; if (B) B.dizzy = null; },
+    ready(id) { ready[id] = true; },
+  };
+})();
 
 /* ---------------- wiring ---------------- */
 $("btnBattle").addEventListener("click", openLobby);

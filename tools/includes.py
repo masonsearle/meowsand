@@ -113,3 +113,7 @@ for _k, _v in INCLUDES.items():  # strip "x? " uncertain entries from the filter
     INCLUDES[_k] = [(s, None if f is None or f[0] == "top" else (f[0], _re.sub(r"[^,]*\? ?,?", "", f[1])), WEIGHTS.get(_k, {}).get(s, .04)) if not (f and f[0] == "top")
                     else (s, f, WEIGHTS.get(_k, {}).get(s, .04)) for s, f in _v]
 FLYING_HEROES = _re.sub(r"[^,]*\? ?,?", "", FLYING_HEROES)
+
+from categories_v4 import INCLUDES_V4 as _V4
+for _k, _v in _V4.items():
+    INCLUDES.setdefault(_k, []).extend(_v)

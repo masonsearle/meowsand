@@ -51,7 +51,7 @@ button.link{background:none;border:none;box-shadow:none;color:var(--dim);font-si
 .card{width:min(640px,100%);background:var(--panel);border:3px solid var(--cyan);
   box-shadow:0 0 0 3px var(--navy),0 8px 30px rgba(0,0,0,.35);padding:18px 20px;text-align:center}
 .card.wide{width:min(720px,100%)}
-.timer{height:8px;background:#22304d;margin:-4px 0 14px}
+.timer{flex:1;height:14px;background:#22304d;border:2px solid #1b2235}
 #timerBar{height:100%;width:100%;background:var(--cyan);transition:width .1s linear}
 #timerBar.low{background:var(--pink)}
 #prompt{font-family:"Silkscreen",monospace;font-weight:400;font-size:clamp(20px,4vw,34px);margin:6px 0 16px;letter-spacing:.04em}
@@ -192,3 +192,18 @@ button.resume{border-color:var(--pink);box-shadow:0 0 0 3px var(--navy),0 0 18px
 .nextin{font-size:12px;color:var(--dim)}
 #beCat{width:240px;height:150px;margin:8px auto;display:block}
 @media (max-width:520px){.fighter canvas{width:72px;height:45px}.duel .side b{font-size:15px}.vsmid b{font-size:11px}}
+
+/* big countdown */
+.timerrow{display:flex;align-items:center;gap:12px;margin:-4px 0 12px}
+.count{font-family:"Silkscreen",monospace;font-size:34px;line-height:1;min-width:1.6em;text-align:right;color:var(--cyan);text-shadow:0 2px 0 #1b2235}
+.count.warn{color:var(--gold)}
+.count.danger{color:var(--pink);text-shadow:0 0 12px var(--pink)}
+.count.beat{animation:beat .9s ease-out}
+@keyframes beat{0%{transform:scale(1.7)}40%{transform:scale(1)}100%{transform:scale(1)}}
+#timerBar.low,#bTimer.low{animation:flash .5s steps(2) infinite}
+@keyframes flash{50%{opacity:.45}}
+#bTimer{height:100%;width:100%;background:var(--cyan);transition:width .1s linear}
+#bTimer.low{background:var(--pink)}
+/* 1v1 arena */
+#arena{width:min(640px,100%);aspect-ratio:200/50;image-rendering:pixelated;display:block;margin:0 auto 10px;
+  background:linear-gradient(#1b2a4a 0 72%,#2a3a5c 72% 75%,#16203a 75%);border:3px solid var(--cyan);box-shadow:0 0 0 3px var(--navy)}

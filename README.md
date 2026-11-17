@@ -5,8 +5,8 @@ A cat-themed, Krillion-style word game. Name a thing, and the **rarer** your ans
 - **Daily Chase**: 7 prompts, 25 seconds each, the same for everyone that day
 - **Unlimited**: endless chases, never locked behind a daily limit
 - **Two packs**, switchable on the title screen. Each has its own daily chase, streak and journey:
-  - 🧶 **Classic**: 161 prompts and about 196,000 answers. Every song and act from 68 years of the Billboard Hot 100, 21,000 board games, 11,000 video games, 10,000 books, 32,000 world cities, real rhyming words from the CMU dictionary, and more
-  - 🎬 **Movies**: 102 prompts and about 89,000 answers, with its own Hollywood-themed scenery. Genres, decades, 40 actors' filmographies, directors, franchises, villains, characters, and "movie with a colour in its title"-style prompts
+  - 🧶 **Classic**: 307 prompts and about 284,000 answers (34 of them borrowed from the Movies pack). Every song and act from 68 years of the Billboard Hot 100, 21,000 board games, 11,000 video games, 10,000 books, 32,000 world cities, real rhyming words from the CMU dictionary, and more
+  - 🎬 **Movies**: 171 prompts and about 100,000 answers, with its own Hollywood-themed scenery. Genres, decades, 40 actors' filmographies, directors, franchises, villains, characters, and "movie with a colour in its title"-style prompts
 - Unlimited is one continuous journey through 9 biomes: Meadow → Shores → Autumn Woods → Dunes → Snowy Peaks → Moonlit Moors → Neon Alley → Candy Canyon → The Moon (then it loops)
 - **◀ BACK / Esc** saves your chase, timer included, so you can resume it later from the title screen
 - Typos and plurals are forgiven, and it runs fully static on GitHub Pages (no server)
@@ -54,7 +54,7 @@ Play a friend live:
 2. One of you presses **+ Create lobby**. It appears in the other person's **Open lobbies** list, where they press **Join**.
 3. The host presses **Start battle**.
 
-You both get the same prompt. Once you've both answered, the answers are shown side by side, and the difference in metres comes off the lower scorer's health (300 HP each). Damage is multiplied by 1.5 after every 7 prompts (×1, ×1.5, ×2.25…). The first cat to 0 loses. The host can start a rematch, and your win/loss record against each friend is saved.
+You both get the same prompt. Once you've both answered, the answers are shown side by side, and the difference in metres comes off the lower scorer's health (300 HP each). After both answer, the cats have a cartoon cat-fight before the damage lands. Damage is multiplied by 1.5 after every 7 prompts (×1, ×1.5, ×2.25…). The first cat to 0 loses. The host can start a rematch, and your win/loss record against each friend is saved.
 
 Battles use **Supabase Realtime**, from the same free project and `config.js` as the leaderboard. No extra tables are needed. If lobbies never appear, check that **Realtime** is enabled and public channels are allowed in the Supabase dashboard (Project Settings → Realtime).
 For testing on one computer without Supabase, open the site with `?mock` in two tabs (e.g. `index.html?mock`).

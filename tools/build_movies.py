@@ -16,6 +16,7 @@ from rarity import norm, parse_hand, score
 from movies_heads import HEADS, CLOSED, ACTORS
 from categories import HANDWRITTEN
 from franchises import FRANCHISES
+from movies_more import ACTORS_MORE, GENRES_MORE, CLOSED_MORE, SHARE_WITH_CLASSIC
 
 ROOT = os.path.dirname(HERE)
 SOURCES = os.path.join(ROOT, "..", "sources")
@@ -187,6 +188,15 @@ def build_one(q, head_text, tail, promote):
     return {"q": q, "answers": score(head, uniq, head_wordfreq=False, promote=promote)}
 
 
+ACTORS.update(ACTORS_MORE)
+CLOSED.update(CLOSED_MORE)
+_extra = []
+for q, tags, promote, head in GENRES_MORE:
+    pred = decade(1900 + int(q[-3:-1])) if tags is None else genre(*tags)
+    HEADS[q] = head
+    _extra.append((q, pred, promote))
+PROMPTS[-1:-1] = _extra  # keep "Name a movie" last
+
 # "Name a movie": interleave every hand-ordered head so modern hits rank properly
 lists = [parse_hand(HEADS[q]) for q in HEADS if q.startswith("Name a") and "actor" not in q and "director" not in q]
 lists += [parse_hand(v) for v in ACTORS.values()]
@@ -285,3 +295,15 @@ print("sequel aliases attached:", n_alias)
 prompts = [p for p in prompts if len(p["answers"]) >= 10]
 from rarity import write_pack
 write_pack(os.path.join(ROOT, "data", "movies"), "movies", prompts)
+
+# some movie prompts also play in the Classic pack
+cdir = os.path.join(ROOT, "data", "classic")
+cidx = json.load(open(os.path.join(cdir, "index.json"), encoding="utf8"))
+cprompts = [json.load(open(os.path.join(cdir, f"{i}.json"), encoding="utf8")) for i in range(len(cidx["prompts"]))]
+have_q = {p["q"] for p in cprompts}
+byq = {p["q"]: p for p in prompts}
+added = [byq[q] for q in SHARE_WITH_CLASSIC if q in byq and q not in have_q]
+missing = [q for q in SHARE_WITH_CLASSIC if q not in byq]
+if missing:
+    print("  share: not found", missing)
+write_pack(cdir, "classic", cprompts + added)

@@ -206,3 +206,66 @@ def songs(artist=None):
         parts = [x.strip() for x in t.split("/") if x.strip()]  # double A-sides: either title counts
         out.append(((parts + [t]) if len(parts) > 1 else [t], 0.8 + 1.2 * math.log10(w + 1)))
     return out
+
+
+# ---------- round 4: filtered views of the same datasets ----------
+def pokemon_of_type(type_name):
+    if not (have("pokemon_types.csv") and have("types.csv")):
+        return []
+    tid = next((r["id"] for r in csv.DictReader(open(src("types.csv"), encoding="utf8")) if r["identifier"] == type_name), None)
+    ids = {r["pokemon_id"] for r in csv.DictReader(open(src("pokemon_types.csv"), encoding="utf8")) if r["type_id"] == tid}
+    return [(n, z) for (n, z), pid in _pokemon_with_ids() if pid in ids]
+
+
+def _pokemon_with_ids():
+    names = {}
+    if have("pokemon_names.csv"):
+        for r in csv.DictReader(open(src("pokemon_names.csv"), encoding="utf8")):
+            if r["local_language_id"] == "9":
+                names[r["pokemon_species_id"]] = r["name"]
+    out = []
+    for r in csv.DictReader(open(src("pokemon_species.csv"), encoding="utf8")):
+        n = names.get(r["id"], r["identifier"].replace("-", " "))
+        out.append((([n], 4.5 - 0.35 * int(r["generation_id"])), r["id"]))
+    return out
+
+
+def video_games_where(genre=None, publisher=None, platforms=None):
+    if not have("vgsales.csv"):
+        return []
+    sales = collections.Counter()
+    for r in csv.DictReader(open(src("vgsales.csv"), encoding="utf8")):
+        if genre and r["Genre"] != genre:
+            continue
+        if publisher and publisher not in r["Publisher"]:
+            continue
+        if platforms and r["Platform"] not in platforms:
+            continue
+        try:
+            sales[clean(r["Name"])] += float(r["Global_Sales"])
+        except ValueError:
+            pass
+    return [([n], 1.5 + math.log10(s + 0.05)) for n, s in sales.items() if 1 < len(n) < 60]
+
+
+def books_by(author):
+    out = []
+    for r in _books():
+        if author.lower() in r["authors"].lower():
+            t = re.sub(r"\s*\(.*?#\d+\)\s*$", "", (r["original_title"] or r["title"]).strip())
+            if 1 < len(t) < 80:
+                out.append(([t], math.log10(int(r["ratings_count"] or 1) + 1)))
+    return out
+
+
+def cities_in(country, subcountry=None):
+    return cities(lambda r: r["country"] == country and (subcountry is None or r["subcountry"] == subcountry))
+
+
+def palindromes():
+    from wordfreq import top_n_list
+    out = []
+    for w in top_n_list("en", 300000):
+        if len(w) >= 3 and w.isalpha() and w == w[::-1] and len(set(w)) > 1 and re.search("[aeiouy]", w) and w in _cmu() and zipf_frequency(w, "en") >= 1.8:
+            out.append(([w], zipf_frequency(w, "en")))
+    return out

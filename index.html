@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1794929241">
+<link rel="stylesheet" href="style.css?v=1794932322">
 </head>
 <body>
 <canvas id="scene"></canvas>
@@ -63,7 +63,7 @@
     <span><b id="dist">0</b> m</span>
   </div>
   <div class="card">
-    <div class="timer"><div id="timerBar"></div></div>
+    <div class="timerrow"><div class="timer"><div id="timerBar"></div></div><div class="count" id="count1">25</div></div>
     <h2 id="prompt">Name a fruit</h2>
     <form id="answerForm" autocomplete="off">
       <input id="answer" type="text" placeholder="type an answer…" autocapitalize="off" spellcheck="false" maxlength="60">
@@ -138,8 +138,9 @@
     <div class="vsmid"><b id="bRound">PROMPT 1</b><small id="bMult">damage ×1</small><button id="bQuit" class="link">quit</button></div>
     <div class="fighter right" id="fThem"><canvas width="120" height="75"></canvas><div class="fname"></div><div class="hp"><i></i></div><div class="hptext"></div></div>
   </div>
+  <canvas id="arena" width="200" height="50"></canvas>
   <div class="card">
-    <div class="timer"><div id="bTimer"></div></div>
+    <div class="timerrow"><div class="timer"><div id="bTimer"></div></div><div class="count" id="count2">25</div></div>
     <h2 id="bPrompt"></h2>
     <form id="bForm" autocomplete="off"><input id="bAnswer" type="text" placeholder="type an answer…" autocapitalize="off" spellcheck="false" maxlength="60"><button type="submit">GO</button></form>
     <div id="bFeedback" class="feedback"></div>
@@ -188,8 +189,8 @@
   </div>
 </div>
 
-<script src="config.js?v=1794929241"></script>
-<script src="game.js?v=1794929241"></script>
-<script src="battle.js?v=1794929241"></script>
+<script src="config.js?v=1794932322"></script>
+<script src="game.js?v=1794932322"></script>
+<script src="battle.js?v=1794932322"></script>
 </body>
 </html>
